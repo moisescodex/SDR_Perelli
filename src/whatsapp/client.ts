@@ -885,13 +885,23 @@ export async function getChannelConfig(channelPhoneId: string): Promise<{ phone_
 }
 
 // Helper para envio de mensagem via Whaticket / Z-PRO
-export async function sendWhaticketMessage(whatsappId: string, to: string, text: string, apiKey: string) {
+export async function sendWhaticketMessage(whatsappId: string, to: string, text: string, apiKeyAndApiId: string) {
   try {
     const baseUrl = process.env.WHATICKET_API_URL || 'https://api.perellicorretora.com.br';
     const cleanUrl = baseUrl.replace(/\/$/, '');
     const cleanNumber = to.replace(/\D/g, '');
 
-    const response = await fetch(`${cleanUrl}/api/messages/send`, {
+    // Separa API Key e ApiID se houver
+    const parts = apiKeyAndApiId.split(';');
+    const apiKey = parts[0];
+    const apiId = parts[1];
+
+    if (!apiId) {
+      console.error('❌ Erro: ApiID (UUID) não configurado no access_token do canal Whaticket. O formato correto é: "SUA_API_KEY;SEU_API_ID"');
+      return;
+    }
+
+    const response = await fetch(`${cleanUrl}/v2/api/external/${apiId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -900,16 +910,15 @@ export async function sendWhaticketMessage(whatsappId: string, to: string, text:
       body: JSON.stringify({
         number: cleanNumber,
         body: text,
-        whatsappId: parseInt(whatsappId) || 39,
-        openTicket: 0,
-        queueId: 0
+        whatsappId: parseInt(whatsappId) || 39
       })
     });
 
-    const data = await response.json() as any;
     if (!response.ok) {
-      console.error(`❌ Erro da API Whaticket no canal ${whatsappId} ao enviar:`, JSON.stringify(data, null, 2));
+      const errorText = await response.text();
+      console.error(`❌ Erro da API Whaticket no canal ${whatsappId} (Status ${response.status}):`, errorText);
     } else {
+      const data = await response.json() as any;
       console.log(`✅ Mensagem enviada com sucesso via Whaticket API para ${cleanNumber}`);
     }
   } catch (err) {
@@ -924,7 +933,7 @@ export async function sendWhaticketMediaMessage(
   type: 'image' | 'document' | 'audio' | 'video',
   media: { link?: string },
   filename?: string,
-  apiKey?: string
+  apiKeyAndApiId?: string
 ) {
   try {
     const baseUrl = process.env.WHATICKET_API_URL || 'https://api.perellicorretora.com.br';
@@ -933,6 +942,16 @@ export async function sendWhaticketMediaMessage(
 
     if (!media.link) {
       console.warn('⚠️ Envio de mídia via Whaticket sem link ignorado.');
+      return;
+    }
+
+    // Separa API Key e ApiID se houver
+    const parts = (apiKeyAndApiId || '').split(';');
+    const apiKey = parts[0];
+    const apiId = parts[1];
+
+    if (!apiId) {
+      console.error('❌ Erro: ApiID (UUID) não configurado no access_token do canal Whaticket. O formato correto é: "SUA_API_KEY;SEU_API_ID"');
       return;
     }
 
@@ -962,18 +981,19 @@ export async function sendWhaticketMediaMessage(
     const fileBlob = new Blob([new Uint8Array(buffer)], { type: mimeType });
     formData.append('media', fileBlob, filename || defaultFilename);
 
-    const response = await fetch(`${cleanUrl}/api/messages/send`, {
+    const response = await fetch(`${cleanUrl}/v2/api/external/${apiId}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey || ''}`
+        'Authorization': `Bearer ${apiKey}`
       },
       body: formData
     });
 
-    const data = await response.json() as any;
     if (!response.ok) {
-      console.error(`❌ Erro de mídia da API Whaticket no canal ${whatsappId} ao enviar:`, JSON.stringify(data, null, 2));
+      const errorText = await response.text();
+      console.error(`❌ Erro de mídia da API Whaticket no canal ${whatsappId} (Status ${response.status}):`, errorText);
     } else {
+      const data = await response.json() as any;
       console.log(`✅ Mídia [${type}] enviada com sucesso via Whaticket API para ${cleanNumber}`);
     }
   } catch (err) {
