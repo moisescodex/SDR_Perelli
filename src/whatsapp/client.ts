@@ -742,8 +742,115 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
     } catch (error) {
       console.error('❌ Erro no webhook Evolution:', error);
     }
+  }
+  // 3. Se for o webhook do Whaticket / Z-PRO
+  else if (body.method === 'message' && body.msg && body.ticket) {
+    try {
+      if (!res.headersSent) {
+        res.sendStatus(200);
+      }
+
+      const msg = body.msg;
+      const ticket = body.ticket;
+      const contact = ticket.contact || {};
+
+      // Ignora mensagens que o próprio agente ou bot enviou
+      if (msg.fromMe === true) {
+        return;
+      }
+
+      const phone = msg.from || contact.number;
+      if (!phone) return;
+
+      const contactName = contact.name || contact.pushname || 'Lead';
+      const activeChannel = String(ticket.whatsappId || 'default'); // ID da conexão
+
+      // Extrai o texto da mensagem
+      let userText = '';
+      if (msg.text && msg.text.body) {
+        userText = msg.text.body;
+      } else if (typeof msg.body === 'string') {
+        userText = msg.body;
+      }
+
+      if (!userText.trim()) return;
+
+      console.log(`\n📩 [WHATICKET CANAL: ${activeChannel}] Mensagem de ${contactName} (${phone}): ${userText}`);
+
+      // Pega ou cria o Lead escopado por canal
+      let lead = await LeadState.getLead(phone, activeChannel);
+      if (!lead.name || lead.name === 'Lead') {
+        lead.name = contactName;
+        await LeadState.saveLead(lead);
+      }
+
+      // Salva a mensagem no histórico do lead
+      await LeadState.addMessage(phone, activeChannel, 'user', userText);
+
+      // Cancelar qualquer resposta pendente para este usuário (debouncing)
+      const delayKey = `${phone}_${activeChannel}`;
+      if (activeDelays.has(delayKey)) {
+        clearTimeout(activeDelays.get(delayKey));
+        activeDelays.delete(delayKey);
+      }
+
+      // Delay de resposta consultiva (debouncing e humanização)
+      const charCount = userText.length;
+      const baseDelay = 2000;
+      const perCharDelay = Math.min(charCount * 30, 8000);
+      const randomDelay = Math.floor(Math.random() * 3000) + 1000;
+      const totalDelay = baseDelay + perCharDelay + randomDelay;
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+
+      const timeoutId = setTimeout(async () => {
+        activeDelays.delete(delayKey);
+        try {
+          const updatedLead = await LeadState.getLead(phone, activeChannel);
+          const sdrResult = await generateSdrResponse(updatedLead, baseUrl);
+          
+          if (sdrResult.stage !== updatedLead.stage) {
+            await LeadState.updateStage(phone, activeChannel, sdrResult.stage);
+            console.log(`🔄 Lead ${updatedLead.name} avançou para fase: ${sdrResult.stage}`);
+          }
+
+          // Salva no BD
+          await LeadState.addMessage(phone, activeChannel, 'assistant', sdrResult.response, sdrResult.media);
+
+          // Divide a resposta em mensagens consecutivas
+          const chunks = splitMessage(sdrResult.response);
+          console.log(`📤 Enviando resposta Whaticket em ${chunks.length} mensagens para ${phone}...`);
+
+          for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
+            const delay = getTypingDelay(chunk);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            await sendMessage(activeChannel, phone, chunk);
+          }
+
+          // Se a IA escolheu enviar uma mídia
+          if (sdrResult.media) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            await sendMediaMessage(
+              activeChannel,
+              phone,
+              sdrResult.media.type,
+              { link: sdrResult.media.url },
+              sdrResult.media.filename
+            );
+            console.log(`📤 Mídia enviada para ${phone}: [${sdrResult.media.type}] URL: ${sdrResult.media.url}`);
+          }
+        } catch (err) {
+          console.error(`❌ Erro ao enviar resposta Whaticket para ${phone}:`, err);
+        }
+      }, totalDelay);
+
+      activeDelays.set(delayKey, timeoutId);
+    } catch (error) {
+      console.error('❌ Erro no webhook Whaticket:', error);
+    }
   } else {
-    // Se não for nenhum dos dois, apenas encerra com 200 para evitar loops da API externa
+    // Se não for nenhum dos três, apenas encerra com 200 para evitar loops da API externa
     if (!res.headersSent) res.sendStatus(200);
   }
 });
