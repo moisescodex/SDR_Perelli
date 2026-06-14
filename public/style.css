@@ -454,9 +454,12 @@ input:checked + .slider:before {
   pointer-events: none;
   display: flex;
   justify-content: flex-end;
+  visibility: hidden; /* Oculta o drawer quando inativo para evitar que a sombra sangre na tela */
+  transition: visibility 0.25s;
 }
 .chat-drawer.active {
   pointer-events: auto;
+  visibility: visible;
 }
 .drawer-overlay {
   position: absolute;
@@ -479,7 +482,7 @@ input:checked + .slider:before {
   height: 100%;
   background: #0f172a;
   border-left: 1px solid var(--card-border);
-  box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+  box-shadow: none; /* Sem sombra por padrão para não sangrar na lateral */
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
@@ -487,6 +490,7 @@ input:checked + .slider:before {
 }
 .chat-drawer.active .drawer-content {
   transform: translateX(0);
+  box-shadow: -10px 0 30px rgba(0,0,0,0.5); /* Sombra ativa apenas quando o chat está aberto */
 }
 
 .drawer-header {
