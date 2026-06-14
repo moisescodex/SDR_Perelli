@@ -293,6 +293,37 @@ function setupEventListeners() {
       });
     }
   });
+
+  // Listener para os botões de seleção de estágio no celular
+  const mobileTabs = document.querySelectorAll('.mobile-column-tab');
+  mobileTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetStage = tab.getAttribute('data-stage');
+      
+      // Atualiza a aba ativa
+      mobileTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      
+      // Mostra apenas a coluna selecionada
+      updateActiveMobileColumn(targetStage);
+    });
+  });
+}
+
+/**
+ * Atualiza qual coluna do Kanban fica visível no layout móvel
+ */
+function updateActiveMobileColumn(stage) {
+  Object.keys(cols).forEach(key => {
+    if (cols[key]) {
+      const colEl = cols[key].parentElement;
+      if (key === stage) {
+        colEl.classList.add('active-mobile');
+      } else {
+        colEl.classList.remove('active-mobile');
+      }
+    }
+  });
 }
 
 /**
@@ -441,8 +472,20 @@ function renderKanban(leads) {
       const colParent = cols[key].parentElement;
       const countEl = colParent.querySelector('.card-count');
       if (countEl) countEl.innerText = counts[key] || 0;
+
+      // Atualiza também os contadores móveis no celular
+      const mobileBadge = document.getElementById(`badge-${key.toLowerCase()}`);
+      if (mobileBadge) mobileBadge.innerText = counts[key] || 0;
     }
   });
+
+  // Garante que a coluna ativa no celular está sendo mostrada
+  const activeMobileTab = document.querySelector('.mobile-column-tab.active');
+  if (activeMobileTab) {
+    updateActiveMobileColumn(activeMobileTab.getAttribute('data-stage'));
+  } else {
+    updateActiveMobileColumn('SITUATION');
+  }
 }
 
 /**

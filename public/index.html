@@ -67,6 +67,22 @@
         </button>
       </div>
 
+      <!-- Selector de colunas visível apenas no celular -->
+      <div class="mobile-column-selector">
+        <button class="mobile-column-tab active" data-stage="SITUATION">
+          Qualificação <span class="mobile-badge" id="badge-situation">0</span>
+        </button>
+        <button class="mobile-column-tab" data-stage="NEED_PAYOFF">
+          Proposta <span class="mobile-badge" id="badge-need_payoff">0</span>
+        </button>
+        <button class="mobile-column-tab" data-stage="MEETING_SCHEDULED">
+          Negociação <span class="mobile-badge" id="badge-meeting_scheduled">0</span>
+        </button>
+        <button class="mobile-column-tab" data-stage="CONVERTED">
+          Fechamento <span class="mobile-badge" id="badge-converted">0</span>
+        </button>
+      </div>
+
       <div class="kanban-board">
         <!-- Column 1: Qualification -->
         <div class="kanban-column" data-stage="SITUATION">
