@@ -1,0 +1,840 @@
+import express, { Request, Response } from 'express';
+import { env } from '../config/env';
+import { LeadState, Lead, Message } from '../state/LeadState';
+import { generateSdrResponse, transcribeAudio, generateFollowUp, generateThreeHourFollowUp, extractPdfText } from '../ai/openai';
+import { getDb, isDbConnected } from '../state/db';
+import path from 'path';
+
+export const whatsappRouter = express.Router();
+
+const activeSessions = new Set<string>();
+
+// Rota de Login para o CRM Dashboard
+whatsappRouter.post('/api/login', (req: Request, res: Response) => {
+  const { username, password } = req.body;
+
+  const isValid = 
+    (username === '@huddy' && password === 'Prime2026.') ||
+    (username === '@perelli' && password === 'Perelli2026.') ||
+    (username === '@admin' && password === 'PerelliAdmin.');
+
+  if (isValid) {
+    const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    activeSessions.add(token);
+    res.json({ token });
+  } else {
+    res.status(401).json({ error: 'Usuário ou senha incorretos' });
+  }
+});
+
+// Rota de Verificação de Token
+whatsappRouter.post('/api/verify', (req: Request, res: Response) => {
+  const { token } = req.body;
+  if (token && activeSessions.has(token)) {
+    res.json({ valid: true });
+  } else {
+    res.status(401).json({ valid: false });
+  }
+});
+
+// Lista todos os leads no CRM
+whatsappRouter.get('/api/leads', async (req: Request, res: Response) => {
+  const channelPhoneId = req.query.channelPhoneId as string;
+  try {
+    const leads = await LeadState.getAllLeads(channelPhoneId);
+    res.json(leads);
+  } catch (error) {
+    console.error('Erro ao buscar leads:', error);
+    res.status(500).json({ error: 'Erro ao buscar dados do CRM' });
+  }
+});
+
+// Lista canais de WhatsApp
+whatsappRouter.get('/api/channels', async (req: Request, res: Response) => {
+  try {
+    const db = await getDb();
+    if (db && isDbConnected) {
+      const result = await db.query('SELECT * FROM whatsapp_channels ORDER BY created_at DESC');
+      res.json(result.rows);
+    } else {
+      res.json([
+        { phone_number_id: env.META_PHONE_ID || 'default', display_phone_number: 'Padrão', name: 'Canal Principal' }
+      ]);
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Cria ou edita um canal de WhatsApp
+whatsappRouter.post('/api/channels', async (req: Request, res: Response) => {
+  const { phone_number_id, display_phone_number, access_token, name } = req.body;
+  if (!phone_number_id || !display_phone_number || !name) {
+    return res.status(400).json({ error: 'phone_number_id, display_phone_number, e name são obrigatórios.' });
+  }
+  try {
+    const db = await getDb();
+    if (db && isDbConnected) {
+      await db.query(
+        `INSERT INTO whatsapp_channels (phone_number_id, display_phone_number, access_token, name)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT(phone_number_id) DO UPDATE SET
+         display_phone_number = excluded.display_phone_number,
+         access_token = excluded.access_token,
+         name = excluded.name`,
+        [phone_number_id, display_phone_number, access_token || null, name]
+      );
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ error: 'Banco de dados não conectado para salvar canal dinâmico.' });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Busca o histórico de mensagens de um lead específico
+whatsappRouter.get('/api/leads/:phone/messages', async (req: Request, res: Response) => {
+  const phone = req.params.phone as string;
+  const channelPhoneId = req.query.channelPhoneId as string || 'default';
+  try {
+    const lead = await LeadState.getLead(phone, channelPhoneId);
+    res.json(lead.history.map(msg => ({
+      sender: msg.role === 'user' ? 'user' : msg.content.startsWith('[Mídia manual') || msg.content.startsWith('[Resposta manual') ? 'agent' : 'bot',
+      text: msg.content,
+      media: msg.media
+    })));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Cadastra ou reativa um Lead Ativo do CRM
+whatsappRouter.post('/api/leads', async (req: Request, res: Response) => {
+  const { phone, name, channelPhoneId, initialMessage, useTemplate, templateName } = req.body;
+
+  if (!phone) {
+    return res.status(400).json({ error: 'Telefone é obrigatório' });
+  }
+
+  const activeChannel = channelPhoneId || env.META_PHONE_ID || 'default';
+
+  try {
+    let lead = await LeadState.getLead(phone, activeChannel);
+    lead.name = name || 'Lead';
+    await LeadState.saveLead(lead);
+
+    let messageSent = initialMessage;
+
+    if (useTemplate) {
+      const activeTemplate = templateName || 'boas_vindas_perelli';
+      const firstName = name ? name.split(' ')[0] : 'Lead';
+      
+      await sendTemplateMessage(activeChannel, phone, activeTemplate, [firstName]);
+      messageSent = `Olá ${firstName}! Sou o Perelli, consultor virtual da Perelli Corretora. Tudo bem?\n\nMe conta: você quer cotar um plano de saúde individual, familiar ou seria empresarial/CNPJ?`;
+    } else {
+      if (!initialMessage) {
+        return res.status(400).json({ error: 'Mensagem inicial é obrigatória para envio de texto livre' });
+      }
+      await sendMessage(activeChannel, phone, initialMessage);
+    }
+
+    await LeadState.addMessage(phone, activeChannel, 'assistant', messageSent);
+    res.json({ success: true, lead });
+  } catch (error: any) {
+    console.error('Erro ao cadastrar lead ativo:', error);
+    res.status(500).json({ error: error.message || 'Erro ao cadastrar novo lead' });
+  }
+});
+
+// Envia mensagem manual do CRM Dashboard para o Lead no WhatsApp (Intervenção Humana)
+whatsappRouter.post('/api/leads/:phone/manual-message', async (req: Request, res: Response) => {
+  const phone = req.params.phone as string;
+  const { text, channelPhoneId } = req.body;
+
+  if (!phone || !text) {
+    return res.status(400).json({ error: 'Telefone e texto são obrigatórios' });
+  }
+
+  const activeChannel = channelPhoneId || env.META_PHONE_ID || 'default';
+
+  try {
+    const chunks = splitMessage(text);
+    for (const chunk of chunks) {
+      await sendMessage(activeChannel, phone, chunk);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+
+    const lead = await LeadState.getLead(phone, activeChannel);
+    lead.unread = false;
+    await LeadState.saveLead(lead);
+    await LeadState.addMessage(phone, activeChannel, 'assistant', `[Resposta manual]: ${text}`);
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Erro ao enviar mensagem manual:', error);
+    res.status(500).json({ error: error.message || 'Erro ao enviar mensagem' });
+  }
+});
+
+// Atualiza o estágio do lead manualmente via Drag & Drop no CRM
+whatsappRouter.post('/api/leads/:phone/stage', async (req: Request, res: Response) => {
+  const phone = req.params.phone as string;
+  const { stage, channelPhoneId } = req.body;
+
+  if (!phone || !stage) {
+    return res.status(400).json({ error: 'Telefone e estágio são obrigatórios' });
+  }
+
+  const activeChannel = channelPhoneId || 'default';
+
+  try {
+    await LeadState.updateStage(phone, activeChannel, stage as Lead['stage']);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Erro ao atualizar estágio:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Marcar lead como lido
+whatsappRouter.post('/api/leads/:phone/read', async (req: Request, res: Response) => {
+  const phone = req.params.phone as string;
+  const { channelPhoneId } = req.body;
+  const activeChannel = channelPhoneId || 'default';
+
+  try {
+    const lead = await LeadState.getLead(phone, activeChannel);
+    lead.unread = false;
+    await LeadState.saveLead(lead);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Erro ao marcar como lido' });
+  }
+});
+
+// Rota de Simulação Local (POST /api/simulate)
+whatsappRouter.post('/api/simulate', async (req: Request, res: Response) => {
+  const { phone, name, text, isAudio, channelPhoneId } = req.body;
+
+  if (!phone || !text) {
+    return res.status(400).json({ error: 'Telefone e texto são obrigatórios' });
+  }
+
+  const messageText = isAudio ? `[Áudio Transcrito: "${text}"]` : text;
+  const contactName = name || 'Cliente Simulado';
+  const activeChannel = channelPhoneId || 'default';
+
+  console.log(`[SIMULATOR INCOMING] Channel: ${activeChannel}, Phone: ${phone}, Msg: "${messageText}"`);
+
+  try {
+    let lead = await LeadState.getLead(phone, activeChannel);
+    if (!lead.name || lead.name === 'Lead') {
+      lead.name = contactName;
+      await LeadState.saveLead(lead);
+    }
+
+    await LeadState.addMessage(phone, activeChannel, 'user', messageText);
+
+    const delayKey = `${phone}_${activeChannel}`;
+    if (activeDelays.has(delayKey)) {
+      clearTimeout(activeDelays.get(delayKey));
+      activeDelays.delete(delayKey);
+    }
+
+    // Resposta rápida de 1.5s na simulação local
+    const timeoutId = setTimeout(async () => {
+      activeDelays.delete(delayKey);
+      try {
+        const updatedLead = await LeadState.getLead(phone, activeChannel);
+        const sdrResult = await generateSdrResponse(updatedLead);
+        
+        if (sdrResult.stage !== updatedLead.stage) {
+          await LeadState.updateStage(phone, activeChannel, sdrResult.stage);
+          console.log(`🔄 Lead ${updatedLead.name} avançou para fase: ${sdrResult.stage}`);
+        }
+
+        // Salva a resposta no BD
+        await LeadState.addMessage(phone, activeChannel, 'assistant', sdrResult.response, sdrResult.media);
+        console.log(`[SIMULATOR OUTGOING] Perelli responde: "${sdrResult.response.replace(/\n/g, '\\n')}"`);
+        
+        if (sdrResult.media) {
+          console.log(`[SIMULATOR OUTGOING] Mídia enviada: [${sdrResult.media.type}] URL: ${sdrResult.media.url}`);
+        }
+      } catch (err) {
+        console.error('Erro ao responder simulador:', err);
+      }
+    }, 1500);
+
+    activeDelays.set(delayKey, timeoutId);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Erro na simulação local:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Desduplicação de webhooks da Meta
+const processedMessageIds = new Set<string>();
+
+// Delays de digitação por telefone (debouncing)
+const activeDelays = new Map<string, NodeJS.Timeout>();
+
+function cleanHtml(html: string): string {
+  let text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '');
+  text = text.replace(/<[^>]+>/g, ' ');
+  text = text
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+  text = text.replace(/\s+/g, ' ').trim();
+  return text;
+}
+
+function getTypingDelay(text: string): number {
+  const charsPerSecond = 18;
+  const delay = (text.length / charsPerSecond) * 1000;
+  return Math.max(1500, Math.min(delay, 6500));
+}
+
+export async function fetchUrlContent(url: string): Promise<string> {
+  try {
+    let targetUrl = url;
+    if (!/^https?:\/\//i.test(targetUrl)) {
+      targetUrl = 'https://' + targetUrl;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch(targetUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      return `[Erro ao acessar o link: Código ${res.status}]`;
+    }
+
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('text/html') && !contentType.includes('text/plain') && !contentType.includes('application/json')) {
+      return `[Link contém tipo de arquivo não suportado: ${contentType}]`;
+    }
+
+    const bodyText = await res.text();
+    const cleanedText = cleanHtml(bodyText);
+
+    if (cleanedText.length > 2000) {
+      return cleanedText.substring(0, 2000) + '... [Conteúdo truncado]';
+    }
+
+    return cleanedText || '[Página sem conteúdo de texto legível]';
+  } catch (error: any) {
+    console.error(`Erro ao acessar URL ${url}:`, error);
+    if (error.name === 'AbortError') {
+      return '[Erro ao acessar o link: Tempo limite de conexão esgotado]';
+    }
+    return `[Erro ao acessar o link: ${error.message || error}]`;
+  }
+}
+
+export function splitMessage(text: string): string[] {
+  const lines = text
+    .split(/\n+/)
+    .map(chunk => chunk.trim())
+    .filter(chunk => chunk.length > 0);
+
+  const finalChunks: string[] = [];
+
+  for (const line of lines) {
+    if (line.length <= 90) {
+      finalChunks.push(line);
+      continue;
+    }
+
+    const sentences = line.split(/(?<=[.?!])\s+/);
+    
+    let currentChunk = '';
+    for (const sentence of sentences) {
+      const trimmedSentence = sentence.trim();
+      if (!trimmedSentence) continue;
+
+      if (currentChunk && (currentChunk + ' ' + trimmedSentence).length > 100) {
+        finalChunks.push(currentChunk.trim());
+        currentChunk = trimmedSentence;
+      } else {
+        currentChunk = currentChunk ? currentChunk + ' ' + trimmedSentence : trimmedSentence;
+      }
+    }
+    
+    if (currentChunk) {
+      finalChunks.push(currentChunk.trim());
+    }
+  }
+
+  return finalChunks;
+}
+
+// GET /webhook - Verificação de webhook pela Meta
+whatsappRouter.get('/webhook', (req: Request, res: Response) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode && token) {
+    if (mode === 'subscribe' && token === env.META_VERIFY_TOKEN) {
+      console.log('✅ Webhook verificado pela Meta!');
+      res.status(200).send(challenge);
+    } else {
+      res.sendStatus(403);
+    }
+  } else {
+    res.sendStatus(400);
+  }
+});
+
+// POST /webhook - Recepção de mensagens enviadas por leads
+whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
+  const body = req.body;
+
+  if (body.object === 'whatsapp_business_account') {
+    try {
+      const entry = body.entry?.[0];
+      const changes = entry?.changes?.[0];
+      const value = changes?.value;
+      const metadata = value?.metadata;
+      
+      // Recupera o Phone Number ID destinatário para multi-número
+      const phone_number_id = metadata?.phone_number_id; 
+      const messages = value?.messages;
+
+      if (!res.headersSent) {
+        res.sendStatus(200);
+      }
+
+      if (messages && messages[0] && phone_number_id) {
+        const message = messages[0];
+        
+        if (message.type !== 'text' && message.type !== 'audio' && message.type !== 'document') return;
+
+        if (message.type === 'document' && message.document?.mime_type !== 'application/pdf') {
+          console.log(`⚠️ Documento de tipo não suportado ignorado: ${message.document?.mime_type}`);
+          return;
+        }
+
+        const messageId = message.id;
+        
+        if (processedMessageIds.has(messageId)) {
+          console.log(`⚠️ [WEBHOOK] Ignorando mensagem duplicada (ID: ${messageId})`);
+          return;
+        }
+        
+        processedMessageIds.add(messageId);
+        
+        if (processedMessageIds.size > 500) {
+          const firstAdded = Array.from(processedMessageIds)[0];
+          processedMessageIds.delete(firstAdded);
+        }
+
+        const phone = message.from; 
+        const contactName = value?.contacts?.[0]?.profile?.name || 'Lead';
+        const activeChannel = phone_number_id;
+        let userText = '';
+
+        // Carrega a configuração do canal para baixar a mídia
+        const channelConfig = await getChannelConfig(activeChannel);
+
+        if (message.type === 'text') {
+          userText = message.text.body;
+          console.log(`\n📩 [CANAL: ${channelConfig.name}] Mensagem de ${contactName} (${phone}): ${userText}`);
+        } else if (message.type === 'audio') {
+          const audioId = message.audio?.id;
+          const mimeType = message.audio?.mime_type || 'audio/ogg';
+          console.log(`\n📩 [CANAL: ${channelConfig.name}] Áudio de ${contactName} (${phone}) - ID: ${audioId}. Transcrevendo...`);
+          
+          try {
+            const mediaUrlRes = await fetch(`https://graph.facebook.com/v20.0/${audioId}`, {
+              headers: { 'Authorization': `Bearer ${channelConfig.access_token}` }
+            });
+            if (!mediaUrlRes.ok) {
+              throw new Error(`Falha ao buscar URL da mídia: ${mediaUrlRes.statusText}`);
+            }
+            const mediaUrlData = await mediaUrlRes.json() as { url: string };
+            
+            const audioDataRes = await fetch(mediaUrlData.url, {
+              headers: { 'Authorization': `Bearer ${channelConfig.access_token}` }
+            });
+            if (!audioDataRes.ok) {
+              throw new Error(`Falha ao baixar áudio: ${audioDataRes.statusText}`);
+            }
+            const audioArrayBuffer = await audioDataRes.arrayBuffer();
+            const audioBuffer = Buffer.from(audioArrayBuffer);
+            
+            userText = await transcribeAudio(audioBuffer, mimeType);
+            console.log(`📝 Áudio transcrevido de ${contactName} (${phone}): "${userText}"`);
+          } catch (audioError) {
+            console.error('❌ Erro ao transcrever áudio:', audioError);
+            await sendMessage(activeChannel, phone, 'Desculpe, não consegui ouvir o seu áudio... Poderia me mandar em texto?');
+            return;
+          }
+        } else if (message.type === 'document') {
+          const documentId = message.document?.id;
+          const filename = message.document?.filename || 'documento.pdf';
+          console.log(`\n📩 [CANAL: ${channelConfig.name}] PDF de ${contactName} (${phone}) - ID: ${documentId}. Extraindo resumo...`);
+          
+          try {
+            const mediaUrlRes = await fetch(`https://graph.facebook.com/v20.0/${documentId}`, {
+              headers: { 'Authorization': `Bearer ${channelConfig.access_token}` }
+            });
+            if (!mediaUrlRes.ok) {
+              throw new Error(`Falha ao buscar URL do PDF: ${mediaUrlRes.statusText}`);
+            }
+            const mediaUrlData = await mediaUrlRes.json() as { url: string };
+            
+            const pdfDataRes = await fetch(mediaUrlData.url, {
+              headers: { 'Authorization': `Bearer ${channelConfig.access_token}` }
+            });
+            if (!pdfDataRes.ok) {
+              throw new Error(`Falha ao baixar PDF: ${pdfDataRes.statusText}`);
+            }
+            const pdfArrayBuffer = await pdfDataRes.arrayBuffer();
+            const pdfBuffer = Buffer.from(pdfArrayBuffer);
+            
+            const pdfSummary = await extractPdfText(pdfBuffer);
+            userText = `[Documento PDF enviado "${filename}"]: ${pdfSummary}`;
+            console.log(`📝 Resumo do PDF extraído para ${contactName}: "${userText}"`);
+          } catch (pdfError) {
+            console.error('❌ Erro ao processar PDF:', pdfError);
+            await sendMessage(activeChannel, phone, 'Desculpe, não consegui ler o arquivo PDF enviado... Poderia verificar se o arquivo está correto?');
+            return;
+          }
+        }
+
+        // Processa links na mensagem do usuário
+        if (message.type === 'text' || message.type === 'audio') {
+          const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.(?:com|net|org|co|app|io|xyz|info|gov|edu|online|site)(?:\/[^\s]*)?)/gi;
+          const matches = userText.match(urlRegex);
+          if (matches && matches.length > 0) {
+            const linksToProcess = matches.slice(0, 2);
+            let linksInfo = '';
+            for (const link of linksToProcess) {
+              const pageContent = await fetchUrlContent(link);
+              linksInfo += `\n\n[Conteúdo extraído do link (${link})]:\n${pageContent}`;
+            }
+            userText += linksInfo;
+          }
+        }
+
+        // Pega ou cria o Lead escopado por canal
+        let lead = await LeadState.getLead(phone, activeChannel);
+        if (!lead.name || lead.name === 'Lead') {
+          lead.name = contactName;
+          await LeadState.saveLead(lead);
+        }
+
+        // Salva a mensagem no histórico
+        await LeadState.addMessage(phone, activeChannel, 'user', userText);
+
+        // Cancelar qualquer resposta pendente para este usuário (debouncing)
+        const delayKey = `${phone}_${activeChannel}`;
+        if (activeDelays.has(delayKey)) {
+          clearTimeout(activeDelays.get(delayKey));
+          activeDelays.delete(delayKey);
+        }
+
+        // Calcula o delay de resposta consultiva (debouncing e humanização)
+        const charCount = userText.length;
+        const baseDelay = 2000;
+        const perCharDelay = Math.min(charCount * 30, 8000);
+        const randomDelay = Math.floor(Math.random() * 3000) + 1000;
+        const totalDelay = baseDelay + perCharDelay + randomDelay;
+
+        const timeoutId = setTimeout(async () => {
+          activeDelays.delete(delayKey);
+          try {
+            // Recarrega o lead atualizado
+            const updatedLead = await LeadState.getLead(phone, activeChannel);
+
+            // Gera a resposta consultiva usando o Gemini
+            const sdrResult = await generateSdrResponse(updatedLead);
+            if (sdrResult.stage !== updatedLead.stage) {
+              await LeadState.updateStage(phone, activeChannel, sdrResult.stage);
+              console.log(`🔄 Lead ${updatedLead.name} avançou para fase: ${sdrResult.stage}`);
+            }
+
+            // Salva a resposta no histórico (incluindo mídias sugeridas se houver)
+            await LeadState.addMessage(phone, activeChannel, 'assistant', sdrResult.response, sdrResult.media);
+
+            // Divide a resposta em mensagens consecutivas
+            const chunks = splitMessage(sdrResult.response);
+            console.log(`📤 Enviando resposta dividida em ${chunks.length} mensagens para ${phone}...`);
+
+            for (let i = 0; i < chunks.length; i++) {
+              const chunk = chunks[i];
+              const delay = getTypingDelay(chunk);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              await sendMessage(activeChannel, phone, chunk);
+            }
+
+            // Se a IA escolheu enviar uma mídia associada (PDF, Vídeo, Áudio)
+            if (sdrResult.media) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              await sendMediaMessage(
+                activeChannel,
+                phone,
+                sdrResult.media.type,
+                { link: sdrResult.media.url },
+                sdrResult.media.filename
+              );
+              console.log(`📤 Mídia enviada para ${phone}: [${sdrResult.media.type}] URL: ${sdrResult.media.url}`);
+            }
+
+            // Resposta por áudio opcional via ElevenLabs caso tenha recebido áudio
+            if (message.type === 'audio' && env.ELEVENLABS_API_KEY) {
+              const voiceBuffer = await generateSpeech(sdrResult.response);
+              if (voiceBuffer) {
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                const mediaId = await uploadMediaToMeta(activeChannel, voiceBuffer, 'audio/ogg', `voice_${Date.now()}.ogg`);
+                await sendMediaMessage(activeChannel, phone, 'audio', { id: mediaId });
+                await LeadState.addMessage(phone, activeChannel, 'assistant', `[Resposta enviada por áudio/voz]`);
+              }
+            }
+          } catch (err) {
+            console.error(`❌ Erro ao enviar resposta para ${phone}:`, err);
+          }
+        }, totalDelay);
+
+        activeDelays.set(delayKey, timeoutId);
+      }
+    } catch (error) {
+      console.error('❌ Erro no webhook:', error);
+    }
+  } else {
+    if (!res.headersSent) res.sendStatus(404);
+  }
+});
+
+// Helper para obter credenciais do canal
+export async function getChannelConfig(channelPhoneId: string): Promise<{ phone_number_id: string, access_token: string, display_phone_number: string, name: string }> {
+  try {
+    const db = await getDb();
+    if (db && isDbConnected && channelPhoneId && channelPhoneId !== 'default') {
+      const res = await db.query('SELECT * FROM whatsapp_channels WHERE phone_number_id = $1', [channelPhoneId]);
+      const row = res.rows[0];
+      if (row) {
+        return {
+          phone_number_id: row.phone_number_id,
+          access_token: row.access_token || env.META_ACCESS_TOKEN,
+          display_phone_number: row.display_phone_number,
+          name: row.name
+        };
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao ler whatsapp_channels no banco, usando fallback:', err);
+  }
+
+  // Fallback default
+  return {
+    phone_number_id: env.META_PHONE_ID || 'default',
+    access_token: env.META_ACCESS_TOKEN || '',
+    display_phone_number: 'default',
+    name: 'Canal Principal'
+  };
+}
+
+// Funções de chamada da API do WhatsApp Cloud (Graph API)
+export async function sendMessage(channelPhoneId: string, to: string, text: string) {
+  try {
+    const config = await getChannelConfig(channelPhoneId);
+    if (!config.access_token || config.phone_number_id === 'default') {
+      console.warn(`⚠️ Envio de mensagem ignorado: Canal '${channelPhoneId}' sem chave cadastrada.`);
+      return;
+    }
+
+    const response = await fetch(`https://graph.facebook.com/v20.0/${config.phone_number_id}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: to,
+        type: 'text',
+        text: { body: text }
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      console.error(`❌ Erro da API da Meta no canal ${config.name} ao enviar:`, JSON.stringify(data, null, 2));
+    }
+  } catch (err) {
+    console.error('❌ Erro de rede ao tentar enviar a mensagem:', err);
+  }
+}
+
+export async function sendTemplateMessage(channelPhoneId: string, to: string, templateName: string, parameters: string[]) {
+  try {
+    const config = await getChannelConfig(channelPhoneId);
+    if (!config.access_token || config.phone_number_id === 'default') {
+      console.warn(`⚠️ Envio de template ignorado: Canal '${channelPhoneId}' sem chave cadastrada.`);
+      return;
+    }
+
+    const response = await fetch(`https://graph.facebook.com/v20.0/${config.phone_number_id}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: to,
+        type: 'template',
+        template: {
+          name: templateName,
+          language: {
+            code: 'pt_BR'
+          },
+          components: [
+            {
+              type: 'body',
+              parameters: parameters.map(p => ({ type: 'text', text: p }))
+            }
+          ]
+        }
+      })
+    });
+
+    const data: any = await response.json();
+    if (!response.ok) {
+      console.error('❌ Erro da API da Meta ao enviar template:', JSON.stringify(data, null, 2));
+      throw new Error(data.error?.message || 'Erro ao enviar template');
+    }
+  } catch (err: any) {
+    console.error('❌ Falha ao chamar API de template da Meta:', err);
+    throw err;
+  }
+}
+
+export async function uploadMediaToMeta(channelPhoneId: string, buffer: Buffer, mimeType: string, filename: string): Promise<string> {
+  try {
+    const config = await getChannelConfig(channelPhoneId);
+    const formData = new FormData();
+    const blob = new Blob([new Uint8Array(buffer)], { type: mimeType });
+    formData.append('file', blob, filename);
+    formData.append('messaging_product', 'whatsapp');
+
+    const response = await fetch(`https://graph.facebook.com/v20.0/${config.phone_number_id}/media`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.access_token}`
+      },
+      body: formData
+    });
+
+    const data = await response.json() as any;
+    if (!response.ok) {
+      throw new Error(`Erro ao enviar mídia para a Meta: ${JSON.stringify(data)}`);
+    }
+    return data.id;
+  } catch (error) {
+    console.error('❌ Erro na função uploadMediaToMeta:', error);
+    throw error;
+  }
+}
+
+export async function sendMediaMessage(
+  channelPhoneId: string,
+  to: string,
+  type: 'image' | 'document' | 'audio' | 'video',
+  media: { id?: string; link?: string },
+  filename?: string
+) {
+  try {
+    const config = await getChannelConfig(channelPhoneId);
+    if (!config.access_token || config.phone_number_id === 'default') {
+      console.warn(`⚠️ Envio de mídia ignorado: Canal '${channelPhoneId}' sem chave cadastrada.`);
+      return;
+    }
+
+    const payloadMedia: any = {};
+    if (media.id) {
+      payloadMedia.id = media.id;
+    } else if (media.link) {
+      payloadMedia.link = media.link;
+    }
+
+    if (type === 'document' && filename) {
+      payloadMedia.filename = filename;
+    }
+
+    const response = await fetch(`https://graph.facebook.com/v20.0/${config.phone_number_id}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: to,
+        type: type,
+        [type]: payloadMedia
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      console.error(`❌ Erro da API da Meta ao enviar mídia (${type}):`, JSON.stringify(data, null, 2));
+    }
+  } catch (err) {
+    console.error(`❌ Erro de rede ao tentar enviar mídia (${type}):`, err);
+  }
+}
+
+export async function generateSpeech(text: string): Promise<Buffer | null> {
+  const apiKey = env.ELEVENLABS_API_KEY;
+  const voiceId = env.ELEVENLABS_VOICE_ID;
+
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=ogg_44100_96`, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        text: text,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Erro ElevenLabs (${response.status}): ${errorText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch (err) {
+    console.error('❌ [TTS] Falha ao gerar áudio com ElevenLabs:', err);
+    return null;
+  }
+}

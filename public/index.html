@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Perelli Corretora - SDR Kanban & WhatsApp Simulator</title>
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Background decorative glows -->
+  <div class="glow-bg glow-1"></div>
+  <div class="glow-bg glow-2"></div>
+
+  <header class="app-header">
+    <div class="header-container">
+      <div class="logo">
+        <img src="logo.png" alt="Perelli Corretora" class="logo-img">
+        <h1>Perelli <span>SDR Dashboard</span></h1>
+      </div>
+      <div class="header-actions">
+        <div class="channel-select-group">
+          <label for="channel-filter">Filtro Canal:</label>
+          <select id="channel-filter">
+            <option value="">Todos os canais</option>
+          </select>
+        </div>
+        <div class="header-status">
+          <div class="status-indicator online"></div>
+          <span>SDR Perelli Ativo</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    
+    <!-- KANBAN BOARD SECTION -->
+    <section class="board-section">
+      <div class="board-header">
+        <h2>Funil de Qualificação (SPIN)</h2>
+        <button id="btn-refresh" class="btn btn-secondary">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          Atualizar Quadro
+        </button>
+      </div>
+
+      <div class="kanban-board">
+        <!-- Column 1 -->
+        <div class="kanban-column" data-stage="SITUATION">
+          <div class="column-title">
+            <span class="stage-tag tag-situation">Situação</span>
+            <h3>Qualificação Inicial</h3>
+            <span class="card-count">0</span>
+          </div>
+          <div class="column-cards" id="col-situation"></div>
+        </div>
+
+        <!-- Column 2 -->
+        <div class="kanban-column" data-stage="PROBLEM">
+          <div class="column-title">
+            <span class="stage-tag tag-problem">Problema</span>
+            <h3>Mapeamento de Dores</h3>
+            <span class="card-count">0</span>
+          </div>
+          <div class="column-cards" id="col-problem"></div>
+        </div>
+
+        <!-- Column 3 -->
+        <div class="kanban-column" data-stage="IMPLICATION">
+          <div class="column-title">
+            <span class="stage-tag tag-implication">Implicação</span>
+            <h3>Impacto Financeiro</h3>
+            <span class="card-count">0</span>
+          </div>
+          <div class="column-cards" id="col-implication"></div>
+        </div>
+
+        <!-- Column 4 -->
+        <div class="kanban-column" data-stage="NEED_PAYOFF">
+          <div class="column-title">
+            <span class="stage-tag tag-payoff">Proposta</span>
+            <h3>Estudo Comparativo</h3>
+            <span class="card-count">0</span>
+          </div>
+          <div class="column-cards" id="col-payoff"></div>
+        </div>
+
+        <!-- Column 5 -->
+        <div class="kanban-column" data-stage="MEETING_SCHEDULED">
+          <div class="column-title">
+            <span class="stage-tag tag-scheduled">Agendado</span>
+            <h3>Reunião Marcada</h3>
+            <span class="card-count">0</span>
+          </div>
+          <div class="column-cards" id="col-scheduled"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SIDEBAR PANELS -->
+    <aside class="sidebar-section">
+      
+      <!-- WHATSAPP SIMULATOR PANEL -->
+      <div class="sidebar-panel simulator-panel">
+        <div class="panel-header">
+          <svg class="panel-icon whatsapp-color" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 2.72 1.5 4.82 1.5 5.41 0 9.8-4.38 9.8-9.8 0-5.41-4.39-9.8-9.8-9.8-5.41 0-9.8 4.39-9.8 9.8 0 2.01.5 3.15 1.4 4.76L2.2 19.8l4.446-1.164z"/>
+          </svg>
+          <h3>Simulador WhatsApp</h3>
+        </div>
+        <div class="panel-body">
+          <form id="simulator-form" onsubmit="event.preventDefault();">
+            <div class="form-group">
+              <label for="sim-channel">Canal do WhatsApp</label>
+              <select id="sim-channel" required>
+                <option value="default">Canal Principal</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="sim-phone">Telefone do Cliente</label>
+              <input type="text" id="sim-phone" placeholder="Ex: 551731980456" value="551731980456" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="sim-name">Nome do Cliente</label>
+              <input type="text" id="sim-name" placeholder="Ex: Roberto Silva" value="Roberto Silva">
+            </div>
+
+            <div class="form-group">
+              <label for="sim-message">Mensagem do Cliente</label>
+              <textarea id="sim-message" rows="3" placeholder="Digite uma mensagem ou use os atalhos abaixo..." required></textarea>
+            </div>
+
+            <div class="toggle-group">
+              <label class="switch">
+                <input type="checkbox" id="sim-audio-toggle">
+                <span class="slider"></span>
+              </label>
+              <span>Simular Envio de Áudio (Transcrição)</span>
+            </div>
+
+            <button type="submit" id="btn-send-sim" class="btn btn-primary btn-block">
+              Simular Envio
+            </button>
+          </form>
+
+          <div class="quick-sim">
+            <h4>Atalhos de Simulação</h4>
+            <div class="quick-buttons">
+              <button class="quick-btn" data-text="Oi, bom dia! Gostaria de cotar um plano de saúde.">1. Iniciar Conversa</button>
+              <button class="quick-btn" data-text="Seria para mim, tenho 25 anos.">2. Informar Idade (25)</button>
+              <button class="quick-btn" data-text="Isso, seria para São José do Rio Preto mesmo.">3. Confirmar local (Rio Preto)</button>
+              <button class="quick-btn" data-text="Seria a primeira contratação, não tenho plano ativo.">4. Sem Plano Anterior</button>
+              <button class="quick-btn" data-text="Trabalho como empreendedor, tenho um MEI.">5. Profissão / MEI</button>
+              <button class="quick-btn" data-text="Sim, o hospital Austa é essencial pra mim.">6. Hospitais Essenciais</button>
+              <button class="quick-btn" data-text="Quero saber mais ou menos os valores.">7. Objeção de Preço / Call</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WHATSAPP CHANNELS PANEL -->
+      <div class="sidebar-panel channels-panel">
+        <div class="panel-header">
+          <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+          </svg>
+          <h3>Cadastrar Novo Canal</h3>
+        </div>
+        <div class="panel-body">
+          <form id="channel-form" onsubmit="event.preventDefault();">
+            <div class="form-group">
+              <label for="chan-name">Nome do Canal</label>
+              <input type="text" id="chan-name" placeholder="Ex: Perelli Comercial" required>
+            </div>
+            <div class="form-group">
+              <label for="chan-phone-id">Phone Number ID (Meta API)</label>
+              <input type="text" id="chan-phone-id" placeholder="Ex: 123456789012345" required>
+            </div>
+            <div class="form-group">
+              <label for="chan-display">Número de Exibição</label>
+              <input type="text" id="chan-display" placeholder="Ex: +55 (17) 3198-0456" required>
+            </div>
+            <div class="form-group">
+              <label for="chan-token">Meta Access Token (Opcional)</label>
+              <input type="password" id="chan-token" placeholder="Vazio usa token padrão do .env">
+            </div>
+            <button type="submit" id="btn-save-chan" class="btn btn-primary btn-block">
+              Salvar Canal
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <!-- LIVE CHAT OVERLAY DRAWER -->
+  <div class="chat-drawer" id="chat-drawer">
+    <div class="drawer-overlay" id="drawer-overlay"></div>
+    <div class="drawer-content">
+      <div class="drawer-header">
+        <div class="drawer-lead-info">
+          <h3 id="chat-lead-name">Nome do Cliente</h3>
+          <span id="chat-lead-phone" class="phone-subtitle">551731980456</span>
+        </div>
+        <button id="btn-close-chat" class="btn-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Lead Details and Qualification Metadata -->
+      <div class="lead-details-bar">
+        <div class="detail-item">
+          <strong>Estágio Funil:</strong>
+          <span id="chat-lead-stage" class="stage-badge">SITUATION</span>
+        </div>
+        <div class="detail-item">
+          <strong>Possui CNPJ/MEI:</strong>
+          <span id="chat-lead-cnpj" class="badge-value">Não identificado</span>
+        </div>
+        <div class="detail-item">
+          <strong>Plano Atual:</strong>
+          <span id="chat-lead-plan" class="badge-value">Não identificado</span>
+        </div>
+        <div class="detail-item">
+          <strong>Vidas/Pessoas:</strong>
+          <span id="chat-lead-lives" class="badge-value">Não identificado</span>
+        </div>
+        <div class="detail-item">
+          <strong>Hospitais Essenciais:</strong>
+          <span id="chat-lead-hospitals" class="badge-value">Não identificado</span>
+        </div>
+      </div>
+
+      <!-- Live Messages -->
+      <div class="chat-history" id="chat-history-container">
+        <!-- Loaded dynamically -->
+      </div>
+
+      <!-- Live Chat Input and Simulation -->
+      <div class="chat-input-bar">
+        <input type="text" id="manual-message-input" placeholder="Digite uma mensagem...">
+        <button id="btn-send-client" class="btn btn-secondary">Simular Cliente</button>
+        <button id="btn-send-manual" class="btn btn-primary">Intervir (Corretor)</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

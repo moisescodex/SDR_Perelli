@@ -1,0 +1,673 @@
+/* Reset & Variables */
+:root {
+  --bg-primary: #030712;
+  --bg-secondary: rgba(17, 24, 39, 0.65);
+  --card-bg: rgba(31, 41, 55, 0.75);
+  --card-border: rgba(255, 255, 255, 0.05);
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --primary-accent: #138d75; /* Perelli Green/Teal */
+  --success-accent: #10b981; /* Green */
+  --warning-accent: #f59e0b; /* Amber */
+  --danger-accent: #ef4444;  /* Red */
+  --whatsapp-green: #25d366;
+  --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --glow-color: rgba(19, 141, 117, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Background glows */
+.glow-bg {
+  position: absolute;
+  width: 40vw;
+  height: 40vw;
+  border-radius: 50%;
+  filter: blur(120px);
+  z-index: -1;
+  opacity: 0.25;
+  pointer-events: none;
+}
+.glow-1 {
+  background: radial-gradient(circle, var(--primary-accent) 0%, transparent 70%);
+  top: -10vw;
+  left: -10vw;
+}
+.glow-2 {
+  background: radial-gradient(circle, #003049 0%, transparent 70%);
+  bottom: -10vw;
+  right: -10vw;
+}
+
+/* Header styling */
+.app-header {
+  background: rgba(3, 7, 18, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--card-border);
+  padding: 1rem 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.logo-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--primary-accent);
+}
+.logo h1 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+.logo h1 span {
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin-left: 0.25rem;
+}
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.status-indicator.online {
+  background-color: var(--success-accent);
+  box-shadow: 0 0 8px var(--success-accent);
+}
+
+/* Main Container Grid */
+.main-container {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 1.5rem;
+  max-width: 1450px;
+  margin: 1.5rem auto;
+  padding: 0 1.5rem;
+}
+
+/* Kanban Board Section */
+.board-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.board-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.board-header h2 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+/* Kanban Board Columns */
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.kanban-column {
+  background: var(--bg-secondary);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 0.85rem;
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.column-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--card-border);
+}
+.column-title h3 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+.card-count {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.column-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex-grow: 1;
+  min-height: 150px;
+}
+
+/* Stage Badges & Tags */
+.stage-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  align-self: flex-start;
+}
+.tag-situation { color: var(--primary-accent); }
+.tag-problem { color: var(--warning-accent); }
+.tag-implication { color: #8b5cf6; } /* Purple */
+.tag-payoff { color: #ec4899; } /* Pink */
+.tag-scheduled { color: var(--success-accent); }
+
+/* Kanban Cards */
+.kanban-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 0.85rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+.kanban-card:hover {
+  border-color: rgba(30, 156, 170, 0.4);
+  box-shadow: 0 4px 12px var(--glow-color);
+  background: rgba(31, 41, 55, 0.95);
+}
+.card-lead-name {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+.card-lead-phone {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.card-lead-cart-preview {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  padding-top: 0.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.card-total {
+  font-weight: 600;
+  color: var(--primary-accent);
+}
+
+/* Sidebar Sections */
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.sidebar-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--card-border);
+  padding-bottom: 0.75rem;
+}
+.panel-icon {
+  width: 22px;
+  height: 22px;
+}
+.whatsapp-color {
+  color: var(--whatsapp-green);
+}
+.panel-header h3 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+/* Form Styling */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+.form-group label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.form-group input, .form-group textarea {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 0.5rem 0.75rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  transition: var(--transition-smooth);
+}
+.form-group input:focus, .form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-accent);
+  box-shadow: 0 0 6px rgba(30, 156, 170, 0.3);
+}
+
+/* Toggle Switch */
+.toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 20px;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255,255,255,0.1);
+  transition: .2s;
+  border-radius: 20px;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .2s;
+  border-radius: 50%;
+}
+input:checked + .slider {
+  background-color: var(--whatsapp-green);
+}
+input:checked + .slider:before {
+  transform: translateX(18px);
+}
+
+/* Quick Sim Buttons */
+.quick-sim h4 {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+.quick-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.quick-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  padding: 0.4rem 0.5rem;
+  font-size: 0.7rem;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+.quick-btn:hover {
+  background: rgba(30, 156, 170, 0.1);
+  color: var(--text-primary);
+  border-color: rgba(30, 156, 170, 0.3);
+}
+
+/* Button UI */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-size: 0.85rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+.btn-primary {
+  background-color: var(--primary-accent);
+  color: #fff;
+}
+.btn-primary:hover {
+  background-color: #1a8794;
+  opacity: 0.9;
+}
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+}
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.btn-block {
+  display: flex;
+  width: 100%;
+}
+.btn-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Chat Drawer overlay/content */
+.chat-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 200;
+  pointer-events: none;
+  display: flex;
+  justify-content: flex-end;
+}
+.chat-drawer.active {
+  pointer-events: auto;
+}
+.drawer-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.chat-drawer.active .drawer-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+.drawer-content {
+  position: relative;
+  width: 500px;
+  height: 100%;
+  background: #0f172a;
+  border-left: 1px solid var(--card-border);
+  box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.chat-drawer.active .drawer-content {
+  transform: translateX(0);
+}
+
+.drawer-header {
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--card-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.drawer-lead-info h3 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+.phone-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.btn-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+}
+.btn-close:hover {
+  color: var(--text-primary);
+}
+
+/* Detail Info Bar */
+.lead-details-bar {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--card-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+}
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+}
+.detail-item strong {
+  color: var(--text-secondary);
+}
+.stage-badge {
+  background: var(--primary-accent);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.7rem;
+}
+.badge-value {
+  color: #eff6ff;
+  font-weight: 500;
+}
+
+/* Chat messages container */
+.chat-history {
+  flex-grow: 1;
+  padding: 1.25rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  background: #0b0f19;
+}
+.chat-message {
+  max-width: 80%;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+.chat-message.user {
+  background: #1e293b;
+  color: var(--text-primary);
+  align-self: flex-start;
+  border-bottom-left-radius: 2px;
+}
+.chat-message.bot {
+  background: #1e3a8a;
+  color: #eff6ff;
+  align-self: flex-end;
+  border-bottom-right-radius: 2px;
+}
+.chat-message.agent {
+  background: #047857; /* Deep green for manual human agent */
+  color: #ecfdf5;
+  align-self: flex-end;
+  border-bottom-right-radius: 2px;
+}
+
+/* Live Chat override input */
+.chat-input-bar {
+  padding: 1rem;
+  border-top: 1px solid var(--card-border);
+  display: flex;
+  gap: 0.5rem;
+  background: #0f172a;
+}
+.chat-input-bar input {
+  flex-grow: 1;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 0.6rem 0.85rem;
+  font-size: 0.85rem;
+}
+.chat-input-bar input:focus {
+  outline: none;
+  border-color: var(--primary-accent);
+}
+.chat-input-bar .btn {
+  padding: 0.5rem 0.85rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* Custom styles for Perelli Corretora logo and channels selector */
+.logo-img {
+  height: 42px;
+  width: auto;
+  border-radius: 4px;
+  object-fit: contain;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.channel-select-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.channel-select-group label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.channel-select-group select {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  outline: none;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.channel-select-group select:focus {
+  border-color: var(--primary-accent);
+  box-shadow: 0 0 6px rgba(19, 141, 117, 0.3);
+}
+
+.channels-panel form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Media rendering styles in chat drawer */
+.chat-media-preview {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+  border: 1px solid var(--card-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.chat-media-preview a {
+  color: var(--primary-accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.chat-media-preview a:hover {
+  text-decoration: underline;
+}
+
+.chat-media-preview img, .chat-media-preview video {
+  max-width: 100%;
+  border-radius: 4px;
+  margin-top: 0.25rem;
+}
