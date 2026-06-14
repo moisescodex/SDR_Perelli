@@ -910,7 +910,8 @@ export async function sendWhaticketMessage(whatsappId: string, to: string, text:
       body: JSON.stringify({
         number: cleanNumber,
         body: text,
-        whatsappId: parseInt(whatsappId) || 39
+        whatsappId: parseInt(whatsappId) || 39,
+        externalKey: "sdr_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7)
       })
     });
 
@@ -967,6 +968,7 @@ export async function sendWhaticketMediaMessage(
     const formData = new FormData();
     formData.append('number', cleanNumber);
     formData.append('whatsappId', whatsappId);
+    formData.append('externalKey', "sdr_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7));
     
     let mimeType = 'application/octet-stream';
     if (type === 'document') {
