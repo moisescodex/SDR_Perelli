@@ -284,7 +284,9 @@ function setupEventListeners() {
         if (!leadDataJson) return;
         
         const lead = JSON.parse(leadDataJson);
-        if (lead.stage === stage) return; // Same stage, do nothing
+        const isSameStage = lead.stage === stage || 
+                            (stage === 'SITUATION' && (lead.stage === 'PROBLEM' || lead.stage === 'IMPLICATION'));
+        if (isSameStage) return; // Same column, do nothing
 
         console.log(`[DRAG & DROP] Moving ${lead.name} from ${lead.stage} to ${stage}`);
         await updateLeadStage(lead.phone, lead.channel_phone_id, stage);
@@ -421,7 +423,11 @@ function renderKanban(leads) {
   const counts = { SITUATION: 0, NEED_PAYOFF: 0, MEETING_SCHEDULED: 0, CONVERTED: 0 };
 
   leads.forEach(lead => {
-    const stage = lead.stage || 'SITUATION';
+    let stage = lead.stage || 'SITUATION';
+    // Mapeia estágios intermediários da SPIN selling (PROBLEM, IMPLICATION) para a coluna de Qualificação (SITUATION)
+    if (stage === 'PROBLEM' || stage === 'IMPLICATION') {
+      stage = 'SITUATION';
+    }
     if (cols[stage]) {
       counts[stage]++;
       const card = createLeadCard(lead);
@@ -458,6 +464,41 @@ function createLeadCard(lead) {
   const channelName = channel ? channel.name : 'Padrão';
 
   const timeString = lead.updated_at ? formatTime(new Date(lead.updated_at)) : '--:--';
+  let docsHtml = '';
+  if (lead.document_status) {
+    try {
+      const docStatus = JSON.parse(lead.document_status);
+      const rgCnh = docStatus.rg_cnh;
+      const res = docStatus.residence;
+
+      const getBadge = (status, label) => {
+        if (!status) return `<span class="doc-badge pending" title="${label}: Não enviado">📄 ${label}</span>`;
+        if (status.valid) return `<span class="doc-badge valid" title="${label}: Válido (${status.type.toUpperCase()})">✅ ${label}</span>`;
+        return `<span class="doc-badge invalid" title="${label}: Inválido - ${escapeHTML(status.feedback)}">❌ ${label}</span>`;
+      };
+
+      docsHtml = `
+        <div class="card-docs-status" style="display: flex; gap: 6px; margin-top: 6px;">
+          ${getBadge(rgCnh, 'RG/CNH')}
+          ${getBadge(res, 'Residência')}
+        </div>
+      `;
+    } catch (_) {
+      docsHtml = `
+        <div class="card-docs-status" style="display: flex; gap: 6px; margin-top: 6px;">
+          <span class="doc-badge pending">📄 RG/CNH</span>
+          <span class="doc-badge pending">📄 Residência</span>
+        </div>
+      `;
+    }
+  } else {
+    docsHtml = `
+      <div class="card-docs-status" style="display: flex; gap: 6px; margin-top: 6px;">
+        <span class="doc-badge pending">📄 RG/CNH</span>
+        <span class="doc-badge pending">📄 Residência</span>
+      </div>
+    `;
+  }
 
   card.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -466,12 +507,12 @@ function createLeadCard(lead) {
     </div>
     <div class="card-lead-phone">${escapeHTML(lead.phone)}</div>
     <div class="card-lead-cart-preview">${escapeHTML(cnpjText)}</div>
-    <div class="card-footer">
+    ${docsHtml}
+    <div class="card-footer" style="margin-top: 6px;">
       <span>${timeString}</span>
       <span class="card-total">${lead.current_plan ? escapeHTML(lead.current_plan) : 'S/ Plano'}</span>
     </div>
   `;
-
   // Dragstart setup
   card.addEventListener('dragstart', (e) => {
     e.dataTransfer.setData('text/plain', JSON.stringify(lead));

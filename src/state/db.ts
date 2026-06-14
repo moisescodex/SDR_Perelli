@@ -114,6 +114,9 @@ async function initDb(pool: Pool) {
   await pool.query(`
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS requires_intervention BOOLEAN DEFAULT FALSE;
   `);
+  await pool.query(`
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS document_status TEXT;
+  `);
 
   // Tabela de configurações
   await pool.query(`

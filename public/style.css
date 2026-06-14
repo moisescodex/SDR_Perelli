@@ -148,7 +148,8 @@ body {
   border: 1px solid var(--card-border);
   border-radius: 12px;
   padding: 0.85rem;
-  min-height: 70vh;
+  height: calc(100vh - 180px);
+  min-height: 450px;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -178,7 +179,23 @@ body {
   flex-direction: column;
   gap: 0.75rem;
   flex-grow: 1;
-  min-height: 150px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Custom Scrollbar for Kanban Columns */
+.column-cards::-webkit-scrollbar {
+  width: 6px;
+}
+.column-cards::-webkit-scrollbar-track {
+  background: transparent;
+}
+.column-cards::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+.column-cards::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 /* Stage Badges & Tags */
@@ -1001,3 +1018,56 @@ body.light-theme .card-count {
   background: rgba(0, 0, 0, 0.05);
 }
 
+/* Document Status Badges on Cards */
+.card-docs-status {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.doc-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: var(--transition-smooth);
+}
+
+.doc-badge.pending {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px solid var(--card-border);
+}
+
+body.light-theme .doc-badge.pending {
+  background: rgba(0, 0, 0, 0.03);
+  color: #64748b;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.doc-badge.valid {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+body.light-theme .doc-badge.valid {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.doc-badge.invalid {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+body.light-theme .doc-badge.invalid {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.2);
+}

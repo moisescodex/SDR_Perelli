@@ -22,6 +22,7 @@ export interface Lead {
   num_lives?: string | null;
   preferred_hospitals?: string | null;
   requires_intervention?: boolean;
+  document_status?: string | null;
   created_at?: string;
   updated_at?: string;
   history: Message[];
@@ -52,6 +53,7 @@ export class LeadState {
           num_lives: null,
           preferred_hospitals: null,
           requires_intervention: false,
+          document_status: null,
           history: [],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -77,6 +79,7 @@ export class LeadState {
         num_lives: row.num_lives,
         preferred_hospitals: row.preferred_hospitals,
         requires_intervention: row.requires_intervention || false,
+        document_status: row.document_status,
         created_at: row.created_at ? new Date(row.created_at).toISOString() : undefined,
         updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : undefined,
         history: JSON.parse(row.history || '[]')
@@ -96,6 +99,7 @@ export class LeadState {
       num_lives: null,
       preferred_hospitals: null,
       requires_intervention: false,
+      document_status: null,
       history: [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -115,8 +119,8 @@ export class LeadState {
     }
 
     await db.query(
-      `INSERT INTO leads (phone, channel_phone_id, name, stage, status, history, unread, has_cnpj, current_plan, num_lives, preferred_hospitals, requires_intervention, updated_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
+      `INSERT INTO leads (phone, channel_phone_id, name, stage, status, history, unread, has_cnpj, current_plan, num_lives, preferred_hospitals, requires_intervention, document_status, updated_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
        ON CONFLICT(phone, channel_phone_id) DO UPDATE SET 
        name=excluded.name, 
        stage=excluded.stage, 
@@ -128,6 +132,7 @@ export class LeadState {
        num_lives=excluded.num_lives,
        preferred_hospitals=excluded.preferred_hospitals,
        requires_intervention=excluded.requires_intervention,
+       document_status=excluded.document_status,
        updated_at=CURRENT_TIMESTAMP`,
       [
         lead.phone,
@@ -141,7 +146,8 @@ export class LeadState {
         lead.current_plan || null,
         lead.num_lives || null,
         lead.preferred_hospitals || null,
-        lead.requires_intervention || false
+        lead.requires_intervention || false,
+        lead.document_status || null
       ]
     );
   }
@@ -196,6 +202,7 @@ export class LeadState {
       num_lives: row.num_lives,
       preferred_hospitals: row.preferred_hospitals,
       requires_intervention: row.requires_intervention || false,
+      document_status: row.document_status,
       created_at: row.created_at ? new Date(row.created_at).toISOString() : undefined,
       updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : undefined,
       history: JSON.parse(row.history || '[]')
@@ -246,6 +253,7 @@ export class LeadState {
       num_lives: row.num_lives,
       preferred_hospitals: row.preferred_hospitals,
       requires_intervention: row.requires_intervention || false,
+      document_status: row.document_status,
       created_at: row.created_at ? new Date(row.created_at).toISOString() : undefined,
       updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : undefined,
       history: JSON.parse(row.history || '[]')
@@ -301,6 +309,7 @@ export class LeadState {
       num_lives: row.num_lives,
       preferred_hospitals: row.preferred_hospitals,
       requires_intervention: row.requires_intervention || false,
+      document_status: row.document_status,
       created_at: row.created_at ? new Date(row.created_at).toISOString() : undefined,
       updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : undefined,
       history: JSON.parse(row.history || '[]')
@@ -400,6 +409,7 @@ export class LeadState {
       num_lives: row.num_lives,
       preferred_hospitals: row.preferred_hospitals,
       requires_intervention: row.requires_intervention || false,
+      document_status: row.document_status,
       created_at: row.created_at ? new Date(row.created_at).toISOString() : undefined,
       updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : undefined,
       history: JSON.parse(row.history || '[]')

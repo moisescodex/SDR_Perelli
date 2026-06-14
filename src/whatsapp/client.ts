@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { env } from '../config/env';
 import { LeadState, Lead, Message } from '../state/LeadState';
-import { generateSdrResponse, transcribeAudio, generateFollowUp, generateThreeHourFollowUp, extractPdfText } from '../ai/openai';
+import { generateSdrResponse, transcribeAudio, generateFollowUp, generateThreeHourFollowUp, extractPdfText, analyzeDocument } from '../ai/openai';
 import { getDb, isDbConnected } from '../state/db';
 import path from 'path';
 import fs from 'fs';
@@ -244,7 +244,58 @@ whatsappRouter.post('/api/simulate', async (req: Request, res: Response) => {
       await LeadState.saveLead(lead);
     }
 
-    await LeadState.addMessage(phone, activeChannel, 'user', messageText);
+    let userText = messageText;
+    let simulatedDocAnalysis = null;
+
+    if (text.startsWith('[Documento Simulado:') || text.startsWith('[Imagem Simulada:')) {
+      const textLower = text.toLowerCase();
+      const docType = textLower.includes('rg') 
+        ? 'rg' 
+        : textLower.includes('cnh') 
+          ? 'cnh' 
+          : textLower.includes('comprovante') 
+            ? 'comprovante_residencia' 
+            : 'outro';
+      const isInvalid = textLower.includes('invalido') || textLower.includes('inválido') || textLower.includes('outro');
+
+      simulatedDocAnalysis = {
+        detectedType: docType,
+        isReadable: !isInvalid,
+        isDocument: !isInvalid && docType !== 'outro',
+        feedback: isInvalid 
+          ? 'Arquivo ilegível ou inválido. Por favor, envie uma foto nítida e sem reflexos.' 
+          : `${docType.toUpperCase()} recebido e validado com sucesso.`
+      };
+
+      userText = `[Imagem enviada - Tipo: ${simulatedDocAnalysis.detectedType}, Legível: ${simulatedDocAnalysis.isReadable}, É Documento: ${simulatedDocAnalysis.isDocument}, Feedback: ${simulatedDocAnalysis.feedback}]`;
+    }
+
+    if (simulatedDocAnalysis) {
+      let docStatus = { rg_cnh: null as any, residence: null as any };
+      if (lead.document_status) {
+        try {
+          docStatus = JSON.parse(lead.document_status);
+        } catch (_) {}
+      }
+
+      if (simulatedDocAnalysis.isDocument && simulatedDocAnalysis.isReadable) {
+        if (simulatedDocAnalysis.detectedType === 'rg' || simulatedDocAnalysis.detectedType === 'cnh') {
+          docStatus.rg_cnh = { type: simulatedDocAnalysis.detectedType, valid: true, feedback: simulatedDocAnalysis.feedback };
+        } else if (simulatedDocAnalysis.detectedType === 'comprovante_residencia') {
+          docStatus.residence = { type: 'comprovante_residencia', valid: true, feedback: simulatedDocAnalysis.feedback };
+        }
+      } else {
+        if (simulatedDocAnalysis.detectedType === 'rg' || simulatedDocAnalysis.detectedType === 'cnh') {
+          docStatus.rg_cnh = { type: simulatedDocAnalysis.detectedType, valid: false, feedback: simulatedDocAnalysis.feedback };
+        } else if (simulatedDocAnalysis.detectedType === 'comprovante_residencia') {
+          docStatus.residence = { type: 'comprovante_residencia', valid: false, feedback: simulatedDocAnalysis.feedback };
+        }
+      }
+      lead.document_status = JSON.stringify(docStatus);
+      await LeadState.saveLead(lead);
+    }
+
+    await LeadState.addMessage(phone, activeChannel, 'user', userText);
 
     const delayKey = `${phone}_${activeChannel}`;
     if (activeDelays.has(delayKey)) {
@@ -430,7 +481,7 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
       if (messages && messages[0] && phone_number_id) {
         const message = messages[0];
         
-        if (message.type !== 'text' && message.type !== 'audio' && message.type !== 'document') return;
+        if (message.type !== 'text' && message.type !== 'audio' && message.type !== 'document' && message.type !== 'image') return;
 
         if (message.type === 'document' && message.document?.mime_type !== 'application/pdf') {
           console.log(`⚠️ Documento de tipo não suportado ignorado: ${message.document?.mime_type}`);
@@ -492,10 +543,43 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
             await sendMessage(activeChannel, phone, 'Desculpe, não consegui ouvir o seu áudio... Poderia me mandar em texto?');
             return;
           }
+        } else if (message.type === 'image') {
+          const imageId = message.image?.id;
+          const mimeType = message.image?.mime_type || 'image/jpeg';
+          console.log(`\n📩 [CANAL: ${channelConfig.name}] Imagem de ${contactName} (${phone}) - ID: ${imageId}. Analisando documento...`);
+          
+          try {
+            const mediaUrlRes = await fetch(`https://graph.facebook.com/v20.0/${imageId}`, {
+              headers: { 'Authorization': `Bearer ${channelConfig.access_token}` }
+            });
+            if (!mediaUrlRes.ok) {
+              throw new Error(`Falha ao buscar URL da imagem: ${mediaUrlRes.statusText}`);
+            }
+            const mediaUrlData = await mediaUrlRes.json() as { url: string };
+            
+            const imageDataRes = await fetch(mediaUrlData.url, {
+              headers: { 'Authorization': `Bearer ${channelConfig.access_token}` }
+            });
+            if (!imageDataRes.ok) {
+              throw new Error(`Falha ao baixar imagem: ${imageDataRes.statusText}`);
+            }
+            const imageArrayBuffer = await imageDataRes.arrayBuffer();
+            const imageBuffer = Buffer.from(imageArrayBuffer);
+            
+            const analysis = await analyzeDocument(imageBuffer, mimeType);
+            userText = `[Imagem enviada - Tipo: ${analysis.detectedType}, Legível: ${analysis.isReadable}, É Documento: ${analysis.isDocument}, Feedback: ${analysis.feedback}]`;
+            console.log(`📝 Análise da imagem de ${contactName} (${phone}): "${userText}"`);
+
+            await updateLeadDocStatus(phone, activeChannel, analysis);
+          } catch (imgError) {
+            console.error('❌ Erro ao processar/analisar imagem:', imgError);
+            await sendMessage(activeChannel, phone, 'Desculpe, não consegui abrir a sua imagem... Poderia me mandar novamente?');
+            return;
+          }
         } else if (message.type === 'document') {
           const documentId = message.document?.id;
           const filename = message.document?.filename || 'documento.pdf';
-          console.log(`\n📩 [CANAL: ${channelConfig.name}] PDF de ${contactName} (${phone}) - ID: ${documentId}. Extraindo resumo...`);
+          console.log(`\n📩 [CANAL: ${channelConfig.name}] PDF de ${contactName} (${phone}) - ID: ${documentId}. Analisando PDF...`);
           
           try {
             const mediaUrlRes = await fetch(`https://graph.facebook.com/v20.0/${documentId}`, {
@@ -515,9 +599,11 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
             const pdfArrayBuffer = await pdfDataRes.arrayBuffer();
             const pdfBuffer = Buffer.from(pdfArrayBuffer);
             
-            const pdfSummary = await extractPdfText(pdfBuffer);
-            userText = `[Documento PDF enviado "${filename}"]: ${pdfSummary}`;
-            console.log(`📝 Resumo do PDF extraído para ${contactName}: "${userText}"`);
+            const analysis = await analyzeDocument(pdfBuffer, 'application/pdf');
+            userText = `[Documento PDF enviado - Tipo: ${analysis.detectedType}, Legível: ${analysis.isReadable}, É Documento: ${analysis.isDocument}, Feedback: ${analysis.feedback}]`;
+            console.log(`📝 Análise do PDF de ${contactName} (${phone}): "${userText}"`);
+
+            await updateLeadDocStatus(phone, activeChannel, analysis);
           } catch (pdfError) {
             console.error('❌ Erro ao processar PDF:', pdfError);
             await sendMessage(activeChannel, phone, 'Desculpe, não consegui ler o arquivo PDF enviado... Poderia verificar se o arquivo está correto?');
@@ -783,10 +869,38 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
 
       // Extrai o texto da mensagem
       let userText = '';
-      if (msg.text && msg.text.body) {
-        userText = msg.text.body;
-      } else if (typeof msg.body === 'string') {
-        userText = msg.body;
+      let isWhaticketMedia = false;
+
+      if (msg.mediaUrl || msg.url) {
+        const mediaUrl = msg.mediaUrl || msg.url;
+        const mimeType = msg.mediaType || (mediaUrl.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+        const isImageOrPdf = mimeType.startsWith('image/') || mimeType === 'application/pdf';
+
+        if (isImageOrPdf) {
+          try {
+            console.log(`\n📩 [WHATICKET] Baixando mídia de: ${mediaUrl}`);
+            const resMedia = await fetch(mediaUrl);
+            if (resMedia.ok) {
+              const buffer = Buffer.from(await resMedia.arrayBuffer());
+              const analysis = await analyzeDocument(buffer, mimeType);
+              userText = `[Imagem enviada - Tipo: ${analysis.detectedType}, Legível: ${analysis.isReadable}, É Documento: ${analysis.isDocument}, Feedback: ${analysis.feedback}]`;
+              isWhaticketMedia = true;
+              console.log(`📝 Análise de mídia do Whaticket de ${contactName}: "${userText}"`);
+
+              await updateLeadDocStatus(phone, activeChannel, analysis);
+            }
+          } catch (err) {
+            console.error('Erro ao baixar mídia do Whaticket:', err);
+          }
+        }
+      }
+
+      if (!isWhaticketMedia) {
+        if (msg.text && msg.text.body) {
+          userText = msg.text.body;
+        } else if (typeof msg.body === 'string') {
+          userText = msg.body;
+        }
       }
 
       if (!userText.trim()) return;
@@ -967,6 +1081,36 @@ async function triggerFollowUp(phone: string, activeChannel: string) {
     await sendMessage(activeChannel, phone, followUpText);
   } catch (error) {
     console.error('❌ Erro no triggerFollowUp:', error);
+  }
+}
+
+async function updateLeadDocStatus(phone: string, channelPhoneId: string, analysis: { detectedType: string, isReadable: boolean, isDocument: boolean, feedback: string }) {
+  try {
+    const lead = await LeadState.getLead(phone, channelPhoneId);
+    let docStatus = { rg_cnh: null as any, residence: null as any };
+    if (lead.document_status) {
+      try {
+        docStatus = JSON.parse(lead.document_status);
+      } catch (_) {}
+    }
+
+    if (analysis.isDocument && analysis.isReadable) {
+      if (analysis.detectedType === 'rg' || analysis.detectedType === 'cnh') {
+        docStatus.rg_cnh = { type: analysis.detectedType, valid: true, feedback: analysis.feedback };
+      } else if (analysis.detectedType === 'comprovante_residencia') {
+        docStatus.residence = { type: 'comprovante_residencia', valid: true, feedback: analysis.feedback };
+      }
+    } else {
+      if (analysis.detectedType === 'rg' || analysis.detectedType === 'cnh') {
+        docStatus.rg_cnh = { type: analysis.detectedType, valid: false, feedback: analysis.feedback };
+      } else if (analysis.detectedType === 'comprovante_residencia') {
+        docStatus.residence = { type: 'comprovante_residencia', valid: false, feedback: analysis.feedback };
+      }
+    }
+    lead.document_status = JSON.stringify(docStatus);
+    await LeadState.saveLead(lead);
+  } catch (err) {
+    console.error('Erro ao atualizar document_status do lead:', err);
   }
 }
 
