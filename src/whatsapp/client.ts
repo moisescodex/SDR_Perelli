@@ -409,6 +409,7 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
   const body = req.body;
   console.log('📬 [WEBHOOK INCOMING] Payload recebido:', JSON.stringify(body, null, 2));
 
+  // 1. Se for o webhook oficial da Meta
   if (body.object === 'whatsapp_business_account') {
     try {
       const entry = body.entry?.[0];
@@ -621,10 +622,129 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
         activeDelays.set(delayKey, timeoutId);
       }
     } catch (error) {
-      console.error('❌ Erro no webhook:', error);
+      console.error('❌ Erro no webhook Meta:', error);
+    }
+  }
+  // 2. Se for o webhook da Evolution API
+  else if (body.event === 'messages.upsert') {
+    try {
+      if (!res.headersSent) {
+        res.sendStatus(200);
+      }
+
+      const instance = body.instance;
+      const data = body.data;
+      if (!data || !data.key) return;
+
+      const fromMe = data.key.fromMe;
+      if (fromMe) {
+        return; // Ignora mensagens enviadas pelo próprio bot
+      }
+
+      const remoteJid = data.key.remoteJid;
+      if (!remoteJid || !remoteJid.includes('@s.whatsapp.net')) return;
+
+      const phone = remoteJid.split('@')[0];
+      const contactName = data.pushName || 'Lead';
+      const activeChannel = instance; // usamos o nome da instância como o ID do canal
+
+      // Extrai o texto da mensagem
+      const message = data.message;
+      if (!message) return;
+
+      let userText = '';
+      if (message.conversation) {
+        userText = message.conversation;
+      } else if (message.extendedTextMessage) {
+        userText = message.extendedTextMessage.text || '';
+      } else if (message.imageMessage) {
+        userText = message.imageMessage.caption || '';
+      } else if (message.videoMessage) {
+        userText = message.videoMessage.caption || '';
+      }
+
+      // Se não tiver texto legível, ignora
+      if (!userText.trim()) return;
+
+      console.log(`\n📩 [EVOLUTION CANAL: ${activeChannel}] Mensagem de ${contactName} (${phone}): ${userText}`);
+
+      // Pega ou cria o Lead escopado por canal
+      let lead = await LeadState.getLead(phone, activeChannel);
+      if (!lead.name || lead.name === 'Lead') {
+        lead.name = contactName;
+        await LeadState.saveLead(lead);
+      }
+
+      // Salva a mensagem no histórico do lead
+      await LeadState.addMessage(phone, activeChannel, 'user', userText);
+
+      // Cancelar qualquer resposta pendente para este usuário (debouncing)
+      const delayKey = `${phone}_${activeChannel}`;
+      if (activeDelays.has(delayKey)) {
+        clearTimeout(activeDelays.get(delayKey));
+        activeDelays.delete(delayKey);
+      }
+
+      // Calcula o delay de resposta consultiva (debouncing e humanização)
+      const charCount = userText.length;
+      const baseDelay = 2000;
+      const perCharDelay = Math.min(charCount * 30, 8000);
+      const randomDelay = Math.floor(Math.random() * 3000) + 1000;
+      const totalDelay = baseDelay + perCharDelay + randomDelay;
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+
+      const timeoutId = setTimeout(async () => {
+        activeDelays.delete(delayKey);
+        try {
+          // Recarrega o lead atualizado
+          const updatedLead = await LeadState.getLead(phone, activeChannel);
+
+          // Gera a resposta consultiva usando o Gemini
+          const sdrResult = await generateSdrResponse(updatedLead, baseUrl);
+          if (sdrResult.stage !== updatedLead.stage) {
+            await LeadState.updateStage(phone, activeChannel, sdrResult.stage);
+            console.log(`🔄 Lead ${updatedLead.name} avançou para fase: ${sdrResult.stage}`);
+          }
+
+          // Salva a resposta no histórico (incluindo mídias sugeridas se houver)
+          await LeadState.addMessage(phone, activeChannel, 'assistant', sdrResult.response, sdrResult.media);
+
+          // Divide a resposta em mensagens consecutivas
+          const chunks = splitMessage(sdrResult.response);
+          console.log(`📤 Enviando resposta dividida em ${chunks.length} mensagens para ${phone}...`);
+
+          for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
+            const delay = getTypingDelay(chunk);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            await sendMessage(activeChannel, phone, chunk);
+          }
+
+          // Se a IA escolheu enviar uma mídia associada (PDF, Vídeo, Áudio)
+          if (sdrResult.media) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            await sendMediaMessage(
+              activeChannel,
+              phone,
+              sdrResult.media.type,
+              { link: sdrResult.media.url },
+              sdrResult.media.filename
+            );
+            console.log(`📤 Mídia enviada para ${phone}: [${sdrResult.media.type}] URL: ${sdrResult.media.url}`);
+          }
+        } catch (err) {
+          console.error(`❌ Erro ao enviar resposta Evolution para ${phone}:`, err);
+        }
+      }, totalDelay);
+
+      activeDelays.set(delayKey, timeoutId);
+    } catch (error) {
+      console.error('❌ Erro no webhook Evolution:', error);
     }
   } else {
-    if (!res.headersSent) res.sendStatus(404);
+    // Se não for nenhum dos dois, apenas encerra com 200 para evitar loops da API externa
+    if (!res.headersSent) res.sendStatus(200);
   }
 });
 
@@ -657,12 +777,213 @@ export async function getChannelConfig(channelPhoneId: string): Promise<{ phone_
   };
 }
 
-// Funções de chamada da API do WhatsApp Cloud (Graph API)
+// Helper para envio de mensagem via Whaticket / Z-PRO
+export async function sendWhaticketMessage(whatsappId: string, to: string, text: string, apiKey: string) {
+  try {
+    const baseUrl = process.env.WHATICKET_API_URL || 'https://api.perellicorretora.com.br';
+    const cleanUrl = baseUrl.replace(/\/$/, '');
+    const cleanNumber = to.replace(/\D/g, '');
+
+    const response = await fetch(`${cleanUrl}/api/messages/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        number: cleanNumber,
+        body: text,
+        whatsappId: parseInt(whatsappId) || 39,
+        openTicket: 0,
+        queueId: 0
+      })
+    });
+
+    const data = await response.json() as any;
+    if (!response.ok) {
+      console.error(`❌ Erro da API Whaticket no canal ${whatsappId} ao enviar:`, JSON.stringify(data, null, 2));
+    } else {
+      console.log(`✅ Mensagem enviada com sucesso via Whaticket API para ${cleanNumber}`);
+    }
+  } catch (err) {
+    console.error('❌ Erro de rede ao tentar enviar via Whaticket API:', err);
+  }
+}
+
+// Helper para envio de mídia via Whaticket / Z-PRO
+export async function sendWhaticketMediaMessage(
+  whatsappId: string,
+  to: string,
+  type: 'image' | 'document' | 'audio' | 'video',
+  media: { link?: string },
+  filename?: string,
+  apiKey?: string
+) {
+  try {
+    const baseUrl = process.env.WHATICKET_API_URL || 'https://api.perellicorretora.com.br';
+    const cleanUrl = baseUrl.replace(/\/$/, '');
+    const cleanNumber = to.replace(/\D/g, '');
+
+    if (!media.link) {
+      console.warn('⚠️ Envio de mídia via Whaticket sem link ignorado.');
+      return;
+    }
+
+    // Baixa o arquivo do nosso servidor
+    const fileRes = await fetch(media.link);
+    if (!fileRes.ok) {
+      throw new Error(`Falha ao baixar arquivo para reenvio: ${fileRes.statusText}`);
+    }
+    const arrayBuffer = await fileRes.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Constrói o Form Data
+    const formData = new FormData();
+    formData.append('number', cleanNumber);
+    formData.append('whatsappId', whatsappId);
+    
+    let mimeType = 'application/octet-stream';
+    if (type === 'document') {
+      mimeType = 'application/pdf';
+    } else if (type === 'audio') {
+      mimeType = 'audio/mpeg';
+    } else if (type === 'image') {
+      mimeType = 'image/png';
+    }
+
+    const defaultFilename = type === 'document' ? 'documento.pdf' : type === 'audio' ? 'audio.mp3' : 'imagem.png';
+    const fileBlob = new Blob([new Uint8Array(buffer)], { type: mimeType });
+    formData.append('media', fileBlob, filename || defaultFilename);
+
+    const response = await fetch(`${cleanUrl}/api/messages/send`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey || ''}`
+      },
+      body: formData
+    });
+
+    const data = await response.json() as any;
+    if (!response.ok) {
+      console.error(`❌ Erro de mídia da API Whaticket no canal ${whatsappId} ao enviar:`, JSON.stringify(data, null, 2));
+    } else {
+      console.log(`✅ Mídia [${type}] enviada com sucesso via Whaticket API para ${cleanNumber}`);
+    }
+  } catch (err) {
+    console.error('❌ Erro de rede ao tentar enviar mídia via Whaticket API:', err);
+  }
+}
+
+// Helper para envio de mensagem via Evolution API
+export async function sendEvolutionMessage(instance: string, to: string, text: string, apiKey: string) {
+  try {
+    const baseUrl = process.env.EVOLUTION_API_URL || 'https://api.perellicorretora.com.br';
+    const cleanUrl = baseUrl.replace(/\/$/, '');
+    const cleanNumber = to.replace(/\D/g, '');
+
+    const response = await fetch(`${cleanUrl}/message/sendText/${instance}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': apiKey
+      },
+      body: JSON.stringify({
+        number: cleanNumber,
+        textMessage: {
+          text: text
+        },
+        options: {
+          delay: 1000,
+          presence: 'composing'
+        }
+      })
+    });
+
+    const data = await response.json() as any;
+    if (!response.ok) {
+      console.error(`❌ Erro da API Evolution no canal ${instance} ao enviar:`, JSON.stringify(data, null, 2));
+    } else {
+      console.log(`✅ Mensagem enviada com sucesso via Evolution API para ${cleanNumber}`);
+    }
+  } catch (err) {
+    console.error('❌ Erro de rede ao tentar enviar via Evolution API:', err);
+  }
+}
+
+// Helper para envio de mídia via Evolution API
+export async function sendEvolutionMediaMessage(
+  instance: string,
+  to: string,
+  type: 'image' | 'document' | 'audio' | 'video',
+  media: { link?: string },
+  filename?: string,
+  apiKey?: string
+) {
+  try {
+    const baseUrl = process.env.EVOLUTION_API_URL || 'https://api.perellicorretora.com.br';
+    const cleanUrl = baseUrl.replace(/\/$/, '');
+    const cleanNumber = to.replace(/\D/g, '');
+
+    if (!media.link) {
+      console.warn('⚠️ Envio de mídia via Evolution sem link ignorado.');
+      return;
+    }
+
+    let mimeType = 'application/octet-stream';
+    if (type === 'document') {
+      mimeType = 'application/pdf';
+    } else if (type === 'audio') {
+      mimeType = 'audio/mpeg';
+    } else if (type === 'image') {
+      mimeType = 'image/png';
+    }
+
+    const payload = {
+      number: cleanNumber,
+      mediatype: type === 'audio' ? 'audio' : type === 'document' ? 'document' : 'image',
+      mimetype: mimeType,
+      media: media.link,
+      fileName: filename || (type === 'document' ? 'documento.pdf' : type === 'audio' ? 'audio.mp3' : 'imagem.png')
+    };
+
+    const response = await fetch(`${cleanUrl}/message/sendMedia/${instance}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': apiKey || ''
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json() as any;
+    if (!response.ok) {
+      console.error(`❌ Erro de mídia da API Evolution no canal ${instance} ao enviar:`, JSON.stringify(data, null, 2));
+    } else {
+      console.log(`✅ Mídia [${type}] enviada com sucesso via Evolution API para ${cleanNumber}`);
+    }
+  } catch (err) {
+    console.error('❌ Erro de rede ao tentar enviar mídia via Evolution API:', err);
+  }
+}
+
+// Funções de chamada da API do WhatsApp Cloud (Graph API) ou gateways alternativos
 export async function sendMessage(channelPhoneId: string, to: string, text: string) {
   try {
     const config = await getChannelConfig(channelPhoneId);
     if (!config.access_token || config.phone_number_id === 'default') {
       console.warn(`⚠️ Envio de mensagem ignorado: Canal '${channelPhoneId}' sem chave cadastrada.`);
+      return;
+    }
+
+    // Deteção do tipo de canal
+    const isWhaticket = /^\d+$/.test(config.phone_number_id);
+    const isEvolution = !config.access_token.startsWith('EAA') && !isWhaticket;
+
+    if (isWhaticket) {
+      await sendWhaticketMessage(config.phone_number_id, to, text, config.access_token);
+      return;
+    } else if (isEvolution) {
+      await sendEvolutionMessage(config.phone_number_id, to, text, config.access_token);
       return;
     }
 
@@ -680,7 +1001,7 @@ export async function sendMessage(channelPhoneId: string, to: string, text: stri
       })
     });
 
-    const data = await response.json();
+    const data = await response.json() as any;
     if (!response.ok) {
       console.error(`❌ Erro da API da Meta no canal ${config.name} ao enviar:`, JSON.stringify(data, null, 2));
     }
@@ -771,6 +1092,17 @@ export async function sendMediaMessage(
     const config = await getChannelConfig(channelPhoneId);
     if (!config.access_token || config.phone_number_id === 'default') {
       console.warn(`⚠️ Envio de mídia ignorado: Canal '${channelPhoneId}' sem chave cadastrada.`);
+      return;
+    }
+
+    const isWhaticket = /^\d+$/.test(config.phone_number_id);
+    const isEvolution = !config.access_token.startsWith('EAA') && !isWhaticket;
+
+    if (isWhaticket) {
+      await sendWhaticketMediaMessage(config.phone_number_id, to, type, media, filename, config.access_token);
+      return;
+    } else if (isEvolution) {
+      await sendEvolutionMediaMessage(config.phone_number_id, to, type, media, filename, config.access_token);
       return;
     }
 
