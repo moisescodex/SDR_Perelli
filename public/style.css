@@ -1150,164 +1150,183 @@ body.light-theme .mobile-column-tab.active .mobile-badge {
 /* Media Query de Responsividade Móvel */
 @media (max-width: 768px) {
   html, body {
-    max-width: 100vw;
-    overflow-x: hidden;
-    position: relative;
+    max-width: 100vw !important;
+    width: 100vw !important;
+    overflow-x: hidden !important;
+    position: relative !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   /* Header responsivo no celular */
   .app-header {
-    padding: 0.5rem 0.5rem;
-    position: relative; /* Remove sticky no celular para dar mais tela */
-    width: 100%;
-    max-width: 100vw;
-    box-sizing: border-box;
+    padding: 0.5rem 0.5rem !important;
+    position: relative !important; /* Remove sticky no celular para dar mais tela */
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
   }
 
   .header-container {
-    flex-direction: column;
-    gap: 0.5rem;
-    align-items: center;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+    align-items: center !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .logo {
-    justify-content: center;
-    width: 100%;
-    margin-bottom: 0.25rem;
+    justify-content: center !important;
+    width: 100% !important;
+    margin-bottom: 0.25rem !important;
   }
 
   .logo img {
-    height: 32px;
+    height: 32px !important;
   }
 
   .logo h1 {
-    font-size: 1rem;
+    font-size: 1rem !important;
   }
 
   .logo h1 span {
-    font-size: 0.75rem;
+    font-size: 0.75rem !important;
   }
 
   .app-nav {
-    width: 100%;
-    justify-content: center;
-    flex-wrap: wrap; /* Permite quebrar em duas linhas se necessário */
-    gap: 4px;
-    background: rgba(0, 0, 0, 0.15);
-    padding: 4px;
-    border-radius: 8px;
-    box-sizing: border-box;
+    width: 100% !important;
+    justify-content: center !important;
+    flex-wrap: wrap !important; /* Permite quebrar em duas linhas se necessário */
+    gap: 4px !important;
+    background: rgba(0, 0, 0, 0.15) !important;
+    padding: 4px !important;
+    border-radius: 8px !important;
+    box-sizing: border-box !important;
   }
 
   body.light-theme .app-nav {
-    background: rgba(0, 0, 0, 0.03);
+    background: rgba(0, 0, 0, 0.03) !important;
   }
 
   .nav-tab {
-    padding: 6px 8px;
-    font-size: 0.75rem;
-    flex: initial;
-    text-align: center;
-    white-space: nowrap;
+    padding: 6px 8px !important;
+    font-size: 0.75rem !important;
+    flex: initial !important;
+    text-align: center !important;
+    white-space: nowrap !important;
   }
 
   .header-actions {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.5rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--card-border);
-    box-sizing: border-box;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
+    padding-top: 0.5rem !important;
+    border-top: 1px solid var(--card-border) !important;
+    box-sizing: border-box !important;
   }
 
   .theme-btn {
-    font-size: 0.75rem;
-    padding: 0.4rem 0.6rem;
-    width: 100%;
-    justify-content: center;
+    font-size: 0.75rem !important;
+    padding: 0.4rem 0.6rem !important;
+    width: auto !important;
+    flex: 0 0 auto !important;
+    justify-content: center !important;
   }
 
   .channel-select-group {
-    width: 100%;
-    font-size: 0.75rem;
-    justify-content: center;
+    flex: 1 1 auto !important;
+    width: auto !important;
+    max-width: calc(100% - 110px) !important; /* Garante espaço para o botão do tema */
+    font-size: 0.75rem !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+  }
+
+  .channel-select-group label {
+    white-space: nowrap !important;
   }
 
   .channel-select-group select {
-    width: 100%;
-    font-size: 0.75rem;
-    padding: 0.35rem 0.5rem;
+    flex: 1 !important;
+    width: auto !important;
+    min-width: 0 !important;
+    font-size: 0.75rem !important;
+    padding: 0.35rem 0.5rem !important;
   }
 
   .header-status {
-    justify-content: center;
-    font-size: 0.75rem;
+    width: 100% !important;
+    justify-content: center !important;
+    font-size: 0.75rem !important;
+    margin-top: 0.25rem !important;
   }
 
   /* Ajustes do container principal */
   .main-container {
-    margin: 0.5rem 0;
-    padding: 0 0.5rem;
-    width: 100%;
-    max-width: 100vw;
-    box-sizing: border-box;
-    overflow-x: hidden;
+    margin: 0.5rem 0 !important;
+    padding: 0 0.5rem !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
 
   .board-header {
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    text-align: center;
-    margin-bottom: 0.5rem;
-    width: 100%;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    text-align: center !important;
+    margin-bottom: 0.5rem !important;
+    width: 100% !important;
   }
 
   .board-header h2 {
-    font-size: 1.15rem;
+    font-size: 1.15rem !important;
   }
 
   #btn-refresh {
-    width: 100%;
-    padding: 0.45rem 1rem;
-    font-size: 0.8rem;
+    width: 100% !important;
+    padding: 0.45rem 1rem !important;
+    font-size: 0.8rem !important;
   }
 
   /* Exibe o seletor móvel */
   .mobile-column-selector {
-    display: flex;
-    width: 100%;
-    box-sizing: border-box;
-    gap: 2px;
-    margin-bottom: 0.75rem;
+    display: flex !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    gap: 2px !important;
+    margin-bottom: 0.75rem !important;
   }
 
   .mobile-column-tab {
-    font-size: 0.7rem;
-    padding: 8px 2px;
+    font-size: 0.7rem !important;
+    padding: 8px 2px !important;
   }
 
   /* Grid do Kanban colapsa para coluna única */
   .kanban-board {
     grid-template-columns: 1fr !important;
-    gap: 0;
-    width: 100%;
+    gap: 0 !important;
+    width: 100% !important;
   }
 
   /* Esconde todas as colunas por padrão */
   .kanban-column {
     display: none !important;
     height: calc(100vh - 280px) !important;
-    min-height: 400px;
-    padding: 0.5rem;
-    border-radius: 10px;
-    box-shadow: none;
-    width: 100%;
-    box-sizing: border-box;
+    min-height: 400px !important;
+    padding: 0.5rem !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   /* Exibe apenas a coluna ativa móvel */
@@ -1321,58 +1340,58 @@ body.light-theme .mobile-column-tab.active .mobile-badge {
   }
 
   .column-cards {
-    gap: 0.5rem;
-    width: 100%;
+    gap: 0.5rem !important;
+    width: 100% !important;
   }
 
   .kanban-card {
-    padding: 0.75rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    box-sizing: border-box;
+    padding: 0.75rem !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   /* Gaveta do chat em tela cheia no celular (Native app feel) */
   .drawer-content {
     width: 100vw !important;
     max-width: 100vw !important;
-    border-left: none;
+    border-left: none !important;
   }
 
   .drawer-header {
-    padding: 0.85rem 1rem;
+    padding: 0.85rem 1rem !important;
   }
 
   .drawer-lead-info h3 {
-    font-size: 1rem;
+    font-size: 1rem !important;
   }
 
   .lead-details-bar {
-    padding: 0.65rem 1rem;
-    font-size: 0.75rem;
+    padding: 0.65rem 1rem !important;
+    font-size: 0.75rem !important;
   }
 
   .chat-history {
-    padding: 1rem;
+    padding: 1rem !important;
   }
 
   .chat-message {
-    max-width: 90%;
-    font-size: 0.8rem;
+    max-width: 90% !important;
+    font-size: 0.8rem !important;
   }
 
   /* Canais e Documentos em grid vertical único no celular */
   .channels-grid, .docs-grid {
     grid-template-columns: 1fr !important;
-    gap: 1rem;
-    margin-top: 1rem;
-    width: 100%;
+    gap: 1rem !important;
+    margin-top: 1rem !important;
+    width: 100% !important;
   }
 
   .sidebar-panel {
-    padding: 1rem;
-    border-radius: 10px;
-    width: 100%;
-    box-sizing: border-box;
+    padding: 1rem !important;
+    border-radius: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 }
