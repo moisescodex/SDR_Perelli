@@ -350,36 +350,28 @@ export async function fetchUrlContent(url: string): Promise<string> {
 }
 
 export function splitMessage(text: string): string[] {
-  const lines = text
-    .split(/\n+/)
-    .map(chunk => chunk.trim())
-    .filter(chunk => chunk.length > 0);
-
+  // 1. Dividir por quebras de linha duplas para obter os blocos naturais (parágrafos)
+  const paragraphs = text.split(/\n\s*\n+/);
   const finalChunks: string[] = [];
 
-  for (const line of lines) {
-    if (line.length <= 90) {
-      finalChunks.push(line);
-      continue;
-    }
+  for (const paragraph of paragraphs) {
+    const trimmedPara = paragraph.trim();
+    if (!trimmedPara) continue;
 
-    const sentences = line.split(/(?<=[.?!])\s+/);
-    
-    let currentChunk = '';
-    for (const sentence of sentences) {
-      const trimmedSentence = sentence.trim();
-      if (!trimmedSentence) continue;
-
-      if (currentChunk && (currentChunk + ' ' + trimmedSentence).length > 100) {
-        finalChunks.push(currentChunk.trim());
-        currentChunk = trimmedSentence;
-      } else {
-        currentChunk = currentChunk ? currentChunk + ' ' + trimmedSentence : trimmedSentence;
+    // 2. Se o parágrafo tiver até 5 linhas, adiciona ele inteiro
+    const lines = trimmedPara.split('\n');
+    if (lines.length <= 5) {
+      finalChunks.push(trimmedPara);
+    } else {
+      // 3. Se tiver mais de 5 linhas, divide em blocos de no máximo 5 linhas cada
+      let currentSubChunk: string[] = [];
+      for (let i = 0; i < lines.length; i++) {
+        currentSubChunk.push(lines[i]);
+        if (currentSubChunk.length === 5 || i === lines.length - 1) {
+          finalChunks.push(currentSubChunk.join('\n').trim());
+          currentSubChunk = [];
+        }
       }
-    }
-    
-    if (currentChunk) {
-      finalChunks.push(currentChunk.trim());
     }
   }
 
@@ -759,6 +751,20 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
         return;
       }
 
+      // Evita duplicação de mensagens vindas do Whaticket/Z-PRO
+      const messageId = msg.id;
+      if (messageId) {
+        if (processedMessageIds.has(messageId)) {
+          console.log(`⚠️ [WEBHOOK WHATICKET] Ignorando mensagem duplicada (ID: ${messageId})`);
+          return;
+        }
+        processedMessageIds.add(messageId);
+        if (processedMessageIds.size > 500) {
+          const firstAdded = Array.from(processedMessageIds)[0];
+          processedMessageIds.delete(firstAdded);
+        }
+      }
+
       const phone = msg.from || contact.number;
       if (!phone) return;
 
@@ -969,6 +975,7 @@ export async function sendWhaticketMediaMessage(
     formData.append('number', cleanNumber);
     formData.append('whatsappId', whatsappId);
     formData.append('externalKey', "sdr_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7));
+    formData.append('body', filename || (type === 'document' ? 'documento.pdf' : type === 'audio' ? 'audio.mp3' : 'imagem.png'));
     
     let mimeType = 'application/octet-stream';
     if (type === 'document') {

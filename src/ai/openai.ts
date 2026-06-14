@@ -9,10 +9,11 @@ export const systemPrompt = `Você é o Perelli, um Corretor Especialista Virtua
 Seu objetivo é qualificar e vender planos de saúde da AUSTA Medida Certa 50 para os leads, seguindo exatamente o fluxo de atendimento real da corretora.
 
 Diretrizes rígidas de escrita (Tom e Estilo do Perelli no WhatsApp):
-1. TOM NATURAL E EQUILIBRADO: Seja simpático, prestativo e profissional.
-2. SEM GÍRIAS EXCESSIVAS: Evite gírias informais excessivas ("mano", "parça", "blz") no fluxo padrão.
-3. MENSAGENS CURTAS E SEPARADAS: Escreva de forma curta e objetiva. Divida a resposta em até 2 ou 3 balões pequenos usando quebras de linha duplas (\\n\\n).
-4. SEM TEXTÕES: Nunca envie parágrafos longos ou tabelas gigantes em uma única mensagem.
+1. TOM NATURAL E EQUILIBRADO: Seja simpático, prestativo, empático e profissional.
+2. CONVERSA HUMANA E CONEXÃO: Nunca envie mensagens secas ou apenas a tabela/lista diretamente. Sempre comece a mensagem validando o que o lead acabou de dizer, confirmando que entendeu (ex: "Entendi perfeitamente, [Nome]!", "Que ótimo!", "Com certeza!"), demonstrando simpatia e respondendo conectado ao histórico. Ao final da mensagem, sempre faça uma pergunta amigável e natural para guiar o cliente ao próximo passo (ex: "Ficou bom para você?", "O que achou desses valores?", "Consegue separar esses documentos hoje para darmos início?").
+3. SEM GÍRIAS EXCESSIVAS: Evite gírias informais excessivas ("mano", "parça", "blz") no fluxo padrão.
+4. MENSAGENS CURTAS E SEPARADAS: Escreva de forma curta e objetiva. Divida a resposta em até 2 ou 3 balões pequenos usando quebras de linha duplas (\\n\\n).
+5. SEM TEXTÕES: Nunca envie parágrafos longos ou tabelas gigantes em uma única mensagem.
 
 Fluxo Conversacional e Regras de Negócio Obrigatórias:
 
@@ -35,23 +36,23 @@ Fluxo Conversacional e Regras de Negócio Obrigatórias:
      - 49 a 53 anos: R$ 371,83 (Adesão) / R$ 350,73 (Empresarial)
      - 54 a 58 anos: R$ 495,06 (Adesão) / R$ 467,12 (Empresarial)
      - Acima 59 anos: R$ 737,03 (Adesão) / R$ 695,64 (Empresarial)
-   - Responda a proposta exatamente com este formato:
+   - Apresente a proposta do plano de saúde em um formato amigável, iniciando com uma introdução simpática e confirmando as informações dele, e terminando com uma pergunta de continuidade. O bloco da proposta em si deve seguir este padrão:
      "AUSTA – [Adesão ou Empresarial] Medida Certa 50 STD\n✅ [Coletivo por Adesão ou Plano Empresarial (CNPJ)]\n✅ Com Coparticipação\n✅ Reajuste em [Setembro/26 se Adesão ou Junho/26 se Empresarial]\n\n✅ EMERGENCIA 24H em todo território nacional (ABRAMGE)\n✅ Cobertura Total (Consultas, Exames, Internações e Cirurgias)\n✅ Sem limite de Uso\n\nCo-Participação\n🩺 Consultas R$ 35,00\n🩺 Emergência R$ 40,00\n🩺 Internação/Cirurgia R$ 200,00\n🩺 Exames de R$ 2,00 a R$ 200,00\n\nValores por vida/faixa etária:\n\n🧡 Faixa [Faixa Etária] — [N. Vidas] Vida(s)\nEnfermaria: R$ [Preço da Tabela] (por vida)\n---------------------------\n[Adicione se for Adesão: Taxa Associativa à partir de: R$ 5,00\\mensal]"
    - Anexe o arquivo PDF correto no campo \`media\` da resposta JSON:
      * Adesão: AUSTA_Medida-Certa50_ADESAO_2025.pdf
      * Empresarial: AUSTA_Medida-Certa50_EMPRESARIAL_2025.pdf
 
 3. ETAPA 3: BENEFÍCIOS, DESCONTOS E CARÊNCIAS (Estágio 'MEETING_SCHEDULED')
-   - Logo após o lead interagir com a proposta, envie a mensagem de benefícios e descontos exatamente no seguinte formato:
+   - Logo após o lead interagir com a proposta, envie a mensagem de benefícios e descontos. Inicie com um comentário de conexão simpático e termine com uma pergunta chamando para o envio de documentos. A lista de benefícios em si deve seguir este formato:
      "Benefícios Austa contratando hoje:\n\nRedução nas carências:\n* Urgência/Emergência - Liberado para Uso\n* Consultas Simples - Liberado para Uso\n* Exames Simples - Liberado para Uso\n\nIsenção da taxa de adesão:\n* ✅ Isenção da taxa de adesão do plano.\n* ✅ (Não paga nada na contratação)\n* ✅ Sem Consulta no SPC e Serasa\n* ✅ 50% de desconto na 2ª e na 13ª mensalidade.*\n\nDesconto para nova contratação\n✅ 50% de desconto na 2ª e na 13ª mensalidade"
 
 4. ETAPA 4: TRATAMENTO DE DUVIDA "USE E PAGUE" (COPARTICIPAÇÃO)
-   - Se o cliente perguntar "é Use e pague?" ou questionar como funciona a coparticipação, explique de forma simples que ele só paga coparticipação (conforme os valores tabelados) nos exames ou consultas que realmente usar, e anexe o áudio explicativo do catálogo:
+   - Se o cliente perguntar "é Use e pague?" ou questionar como funciona a coparticipação, explique de forma simples e humana que ele só paga coparticipação (conforme os valores tabelados) nos exames ou consultas que realmente usar, e anexe o áudio explicativo do catálogo:
      * Tipo: audio
      * URL: {{BASE_URL}}/documentos/audio_explicativo_planos.mp3
 
 5. ETAPA 5: SOLICITAÇÃO DE DOCUMENTOS
-   - Se o lead pedir os documentos necessários ou concordar com o fechamento, envie exatamente este texto:
+   - Se o lead pedir os documentos necessários ou concordar com o fechamento, inicie com uma introdução simpática e envie a lista de documentos neste formato:
      "🧾DOCUMENTOS NECESSÁRIOS:\nTITULAR\n📸 FOTOS LEGIVEIS \n\n📧 EMAIL\n🪪 RG ou CNH ( FRENTE E VERSO) \n🏠 COMPROVANTE DE RESIDENCIA \n\n(rg e cpf fora do plastico, comprovante de residencia nao precisa estar no nome da pessoa.)"
 
 6. ETAPA 6: EXPLICAR PRÓXIMOS PASSOS E ENTRADA DO VENDEDOR HUMANO
@@ -379,14 +380,15 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
   const isAskingDocs = lastUserMsg.includes('doc') || lastUserMsg.includes('papel') || lastUserMsg.includes('precisa') || lastUserMsg.includes('contrat');
 
   if (stage !== 'SITUATION' && isAskingUse) {
-    response = `O plano funciona sim com coparticipação (conhecido como "use e pague"), onde você só paga taxas muito pequenas por consultas e exames realizados, garantindo uma mensalidade bem mais em conta!\n\nEstou te enviando um áudio curto que explica exatamente como funciona.`;
+    response = `Com certeza! O plano funciona sim com coparticipação (conhecido como "use e pague"), onde você só paga taxas muito pequenas por consultas e exames que realmente realizar. Isso garante uma mensalidade muito mais barata no final do mês!\n\nEstou te enviando um áudio curto aqui que explica direitinho como funciona.`;
     media = {
       type: 'audio',
       url: `${baseUrl}/documentos/audio_explicativo_planos.mp3`,
       filename: 'audio_explicativo_planos.mp3'
     };
   } else if (stage !== 'SITUATION' && isAskingDocs) {
-    response = `Perfeito! Separando estes documentos, nosso consultor já dá início à sua contratação:\n\n🧾DOCUMENTOS NECESSÁRIOS:\nTITULAR\n📸 FOTOS LEGIVEIS \n\n📧 EMAIL\n🪪 RG ou CNH ( FRENTE E VERSO) \n🏠 COMPROVANTE DE RESIDENCIA \n\n*(rg e cpf fora do plastico, comprovante de residencia nao precisa estar no nome da pessoa.)*`;
+    const clientName = lead.name || 'Cliente';
+    response = `Perfeito, ${clientName}! Separando esses documentos abaixo, nosso consultor já dá início à sua contratação e valida tudo na operadora:\n\n🧾 DOCUMENTOS NECESSÁRIOS:\nTITULAR\n📸 FOTOS LEGIVEIS \n\n📧 EMAIL\n🪪 RG ou CNH ( FRENTE E VERSO) \n🏠 COMPROVANTE DE RESIDENCIA \n\n*(rg e cpf fora do plastico, comprovante de residencia nao precisa estar no nome da pessoa.)*\n\nConsegue me mandar por aqui mesmo?`;
   } else if (stage === 'SITUATION') {
     const isGreeting = lastUserMsg === 'oi' || lastUserMsg === 'olá' || lastUserMsg === 'bom dia' || lastUserMsg === 'boa tarde' || lastUserMsg === 'ola';
     
@@ -406,7 +408,8 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
       const reajusteMês = isCnpj ? 'Junho/26' : 'Setembro/26';
       const taxaAssociativa = isCnpj ? '' : '\nTaxa Associativa à partir de: R$ 5,00\\mensal';
 
-      response = `AUSTA – ${isCnpj ? 'Empresarial' : 'Adesão'} Medida Certa 50 STD\n✅ ${tipoContrato}\n✅ Com Coparticipação\n✅ Reajuste em ${reajusteMês}\n\n✅ EMERGENCIA 24H em todo território nacional (ABRAMGE)\n✅ Cobertura Total (Consultas, Exames, Internações e Cirurgias)\n✅ Sem limite de Uso\n\nCo-Participação\n🩺 Consultas R$ 35,00\n🩺 Emergência R$ 40,00\n🩺 Internação/Cirurgia R$ 200,00\n🩺 Exames de R$ 2,00 a R$ 200,00\n\nValores por vida/faixa etária:\n\n🧡 Faixa ${precoData.faixa} — 1 Vida(s)\nEnfermaria: R$ ${precoData.preco.toFixed(2).replace('.', ',')} (por vida)\n---------------------------${taxaAssociativa}`;
+      const clientName = lead.name || 'Cliente';
+      response = `Que ótimo, ${clientName}! Entendi perfeitamente. Como você tem MEI e mora em ${region.city}, consultei a tabela e preparei a melhor opção no plano Empresarial da AUSTA para você. Olha como fica:\n\nAUSTA – ${isCnpj ? 'Empresarial' : 'Adesão'} Medida Certa 50 STD\n✅ ${tipoContrato}\n✅ Com Coparticipação\n✅ Reajuste em ${reajusteMês}\n\n✅ EMERGENCIA 24H em todo território nacional (ABRAMGE)\n✅ Cobertura Total (Consultas, Exames, Internações e Cirurgias)\n✅ Sem limite de Uso\n\nCo-Participação\n🩺 Consultas R$ 35,00\n🩺 Emergência R$ 40,00\n🩺 Internação/Cirurgia R$ 200,00\n🩺 Exames de R$ 2,00 a R$ 200,00\n\nValores por vida/faixa etária:\n\n🧡 Faixa ${precoData.faixa} — 1 Vida(s)\nEnfermaria: R$ ${precoData.preco.toFixed(2).replace('.', ',')} (por vida)\n---------------------------${taxaAssociativa}\n\nEsse valor ficou bom para você? Podemos ver os benefícios adicionais?`;
 
       media = {
         type: 'document',
@@ -421,9 +424,10 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
   } else if (stage === 'NEED_PAYOFF') {
     // Apresenta benefícios e descontos
     stage = 'MEETING_SCHEDULED';
-    response = `Benefícios Austa contratando hoje:\n\nRedução nas carências:\n* Urgência/Emergência - Liberado para Uso\n* Consultas Simples - Liberado para Uso\n* Exames Simples - Liberado para Uso\n\nIsenção da taxa de adesão:\n* ✅ Isenção da taxa de adesão do plano.\n* ✅ (Não paga nada na contratação)\n* ✅ Sem Consulta no SPC e Serasa\n* ✅ 50% de desconto na 2ª e na 13ª mensalidade.*\n\nDesconto para nova contratação\n✅ 50% de desconto na 2ª e na 13ª mensalidade`;
+    const clientName = lead.name || 'Cliente';
+    response = `Que ótimo, ${clientName}! Com certeza, segue os benefícios adicionais exclusivos contratando hoje:\n\nBenefícios Austa contratando hoje:\n\nRedução nas carências:\n* Urgência/Emergência - Liberado para Uso\n* Consultas Simples - Liberado para Uso\n* Exames Simples - Liberado para Uso\n\nIsenção da taxa de adesão:\n* ✅ Isenção da taxa de adesão do plano.\n* ✅ (Não paga nada na contratação)\n* ✅ Sem Consulta no SPC e Serasa\n* ✅ 50% de desconto na 2ª e na 13ª mensalidade.*\n\nDesconto para nova contratação\n✅ 50% de desconto na 2ª e na 13ª mensalidade\n\nO que achou desses benefícios? Para darmos início ao cadastro e verificação na operadora, prefere enviar as fotos dos documentos por aqui mesmo ou prefere tirar as últimas dúvidas antes?`;
   } else if (stage === 'MEETING_SCHEDULED') {
-    response = `Para darmos início ao cadastro e verificação na operadora, você prefere enviar as fotos dos documentos por aqui mesmo ou quer agendar uma ligação rápida de 2 minutos para tirarmos as últimas dúvidas?`;
+    response = `Entendi! Para darmos início ao cadastro e verificação na operadora, você prefere enviar as fotos dos documentos por aqui mesmo ou quer agendar uma ligação rápida de 2 minutos para tirarmos as últimas dúvidas?`;
   }
 
   return {
