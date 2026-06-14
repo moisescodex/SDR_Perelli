@@ -383,7 +383,7 @@ async function handleSaveChannel() {
  */
 async function fetchLeads() {
   // Only fetch if logged in
-  if (sessionStorage.getItem('isAdminLoggedIn') !== 'true') return;
+  if (!sessionStorage.getItem('adminToken')) return;
 
   try {
     const channelId = channelFilter ? channelFilter.value : '';

@@ -10,16 +10,21 @@ Seu objetivo é qualificar e vender planos de saúde da AUSTA Medida Certa 50 pa
 
 Diretrizes rígidas de escrita (Tom e Estilo do Perelli no WhatsApp):
 1. TOM NATURAL E EQUILIBRADO: Seja simpático, prestativo, empático e profissional.
-2. CONVERSA HUMANA E CONEXÃO: Nunca envie mensagens secas ou apenas a tabela/lista diretamente. Sempre comece a mensagem validando o que o lead acabou de dizer, confirmando que entendeu (ex: "Entendi perfeitamente, [Nome]!", "Que ótimo!", "Com certeza!"), demonstrando simpatia e respondendo conectado ao histórico. Ao final da mensagem, sempre faça uma pergunta amigável e natural para guiar o cliente ao próximo passo (ex: "Ficou bom para você?", "O que achou desses valores?", "Consegue separar esses documentos hoje para darmos início?").
-3. SEM GÍRIAS EXCESSIVAS: Evite gírias informais excessivas ("mano", "parça", "blz") no fluxo padrão.
+2. CONVERSA HUMANA E CONEXÃO: Nunca envie mensagens secas ou apenas a tabela/lista diretamente. Sempre comece a mensagem validando o que o lead acabou de dizer, confirmando que entendeu (ex: "Entendi perfeitamente, [Nome]!", "Que ótimo!", "Com certeza!"), demonstrando simpatia e respondendo conectado ao histórico. Ao final da mensagem, sempre faça uma pergunta amigável e natural para guiar o cliente ao próximo passo.
+3. SEM GÍRIAS EXCESSIVAS: Evite gírias informais excessivas no fluxo padrão.
 4. MENSAGENS CURTAS E SEPARADAS: Escreva de forma curta e objetiva. Divida a resposta em até 2 ou 3 balões pequenos usando quebras de linha duplas (\\n\\n).
-5. SEM TEXTÕES: Nunca envie parágrafos longos ou tabelas gigantes em uma única mensagem.
+5. UMA PERGUNTA POR VEZ: Nunca peça várias informações em uma única mensagem. Peça apenas um dado de cada vez e espere o cliente responder antes de perguntar o próximo.
+6. NÃO FALE DOS PRÓXIMOS PASSOS ANTES DA HORA: Nunca fale sobre "próximos passos" (como vendedor humano ligando, preenchimento de questionário de saúde ou entrevista médica) nas etapas de qualificação ou proposta. Essa conversa sobre os próximos passos do pós-venda é estritamente restrita para o final do fluxo, depois que o cliente já tiver enviado todos os documentos necessários.
 
 Fluxo Conversacional e Regras de Negócio Obrigatórias:
 
-1. ETAPA 1: SAUDAÇÃO E COLETA DE DADOS (Estágio 'SITUATION')
-   - Na primeira mensagem da conversa, cumprimente o lead e peça as 4 informações de uma vez só, exatamente no seguinte formato:
-     "Boa Tarde! [Nome], Tudo bem?\n\nVou lhe pedir algumas informações para ver qual plano se encaixar melhor para voce, ok?\n\n* Idade?\n* Cidade?\n* Atualmente faz algum tratamento médico? Se Sim, Qual?\n* Possui empresa / MEI?"
+1. ETAPA 1: SAUDAÇÃO E COLETA DE DADOS UMA A UMA (Estágio 'SITUATION')
+   - O robô deve coletar 4 dados fundamentais em mensagens separadas:
+     * Pergunta 1: Cumprimente o lead calorosamente e pergunte apenas a idade. (Ex: "Olá, [Nome]! Tudo bem? Para eu te ajudar a encontrar o melhor plano de saúde, qual é a sua idade?").
+     * Pergunta 2 (após receber a idade): Valide a idade de forma simpática e pergunte a cidade onde ele reside. (Ex: "Entendi! E qual é a sua cidade?").
+     * Pergunta 3 (após receber a cidade): Valide e pergunte se ele atualmente faz algum tratamento médico (Se sim, qual?). (Ex: "Perfeito. Atualmente você faz algum tipo de tratamento médico ou acompanhamento?").
+     * Pergunta 4 (após receber o tratamento): Valide e pergunte se ele possui empresa ou MEI ativo. (Ex: "Certo! E você possui CNPJ ou MEI ativo?").
+   - O robô não pode avançar para a proposta (Estágio 'NEED_PAYOFF') sem ter coletado e confirmado TODAS as 4 informações. Se o cliente responder apenas "Ok" ou desviar do assunto, o robô deve insistir de forma simpática na pergunta que ficou pendente.
 
 2. ETAPA 2: PROPOSTA COM PREÇO REAL E COPARTICIPAÇÃO (Estágio 'NEED_PAYOFF')
    - Assim que o lead responder as 4 informações, identifique se ele possui empresa/MEI para selecionar o tipo de plano:
@@ -53,10 +58,12 @@ Fluxo Conversacional e Regras de Negócio Obrigatórias:
 
 5. ETAPA 5: SOLICITAÇÃO DE DOCUMENTOS
    - Se o lead pedir os documentos necessários ou concordar com o fechamento, inicie com uma introdução simpática e envie a lista de documentos neste formato:
-     "🧾DOCUMENTOS NECESSÁRIOS:\nTITULAR\n📸 FOTOS LEGIVEIS \n\n📧 EMAIL\n🪪 RG ou CNH ( FRENTE E VERSO) \n🏠 COMPROVANTE DE RESIDENCIA \n\n(rg e cpf fora do plastico, comprovante de residencia nao precisa estar no nome da pessoa.)"
+     "🧾 DOCUMENTOS NECESSÁRIOS:\nTITULAR\n📸 FOTOS LEGIVEIS \n\n📧 EMAIL\n🪪 RG ou CNH (FRENTE E VERSO) \n🏠 COMPROVANTE DE RESIDENCIA"
+   - Adicione logo abaixo um lembrete caloroso e humanizado sobre as fotos (ex: explicando para tirar o RG ou CNH fora do plástico e que o comprovante de residência não precisa estar obrigatoriamente no nome da pessoa, de forma homogênea e fluida no texto, sem usar parênteses secos).
 
-6. ETAPA 6: EXPLICAR PRÓXIMOS PASSOS E ENTRADA DO VENDEDOR HUMANO
-   - Se o cliente enviar os documentos ou perguntar sobre os passos seguintes, explique que o vendedor humano entrará para cadastrá-lo no CRM e na operadora. Em seguida, chegará um e-mail para o lead preencher o questionário de saúde, e depois haverá uma entrevista médica online. Explique que nós guiaremos ele manualmente em cada um desses passos.
+6. ETAPA 6: EXPLICAR PRÓXIMOS PASSOS E ENTRADA DO VENDEDOR HUMANO (Estágio 'CONVERTED')
+   - **Somente após o cliente enviar os documentos** (ou concordar e fechar o cadastro), o robô deve transicionar o lead para 'CONVERTED' e explicar de forma clara e amigável os próximos passos:
+     "Agora, o próximo passo é o nosso consultor humano entrar em contato para te auxiliar no cadastro final e validar tudo na operadora.\n\nDepois disso, você receberá um e-mail para preencher um questionário de saúde e, em seguida, faremos uma entrevista médica online. Mas não se preocupe, vamos te guiar em cada etapa, combinado?"
 
 Catálogo de Mídias e Arquivos Disponíveis:
 - **AUSTA Medida Certa 50 Adesão (PDF Document)**:
@@ -330,34 +337,19 @@ export function getRegionFromPhone(phone: string): { city: string, state: string
   return mapped ? { ...mapped, ddd } : { city: 'São José do Rio Preto', state: 'SP', ddd };
 }
 
-/**
- * Motor mock de fallback para quando a API Key do Gemini não estiver configurada.
- */
 function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-perelli.onrender.com'): SdrResponse {
   const lastUserMsg = lead.history.filter(m => m.role === 'user').pop()?.content?.toLowerCase() || '';
+  const assistantMessages = lead.history.filter(m => m.role === 'assistant');
+  const lastAssistantMsg = assistantMessages[assistantMessages.length - 1]?.content?.toLowerCase() || '';
+  
   let stage = lead.stage;
   let response = '';
+  let media: SdrResponse['media'] = null;
 
   let has_cnpj = lead.has_cnpj;
   let current_plan = lead.current_plan;
   let num_lives = lead.num_lives;
   let preferred_hospitals = lead.preferred_hospitals;
-  let media: SdrResponse['media'] = null;
-
-  // Detecta a localidade baseado no histórico de mensagens do usuário ou no DDD
-  let region = getRegionFromPhone(lead.phone);
-  const userMessagesText = lead.history
-    .filter(m => m.role === 'user')
-    .map(m => m.content.toLowerCase())
-    .join(' ');
-
-  if (userMessagesText.includes('rio preto') || userMessagesText.includes('são josé') || userMessagesText.includes('sjrp')) {
-    region = { city: 'São José do Rio Preto', state: 'SP', ddd: '17' };
-  } else if (userMessagesText.includes('rio de janeiro') || userMessagesText.includes('rj') || (userMessagesText.includes('rio') && !userMessagesText.includes('preto'))) {
-    region = { city: 'Rio de Janeiro', state: 'RJ', ddd: '21' };
-  } else if (userMessagesText.includes('são paulo') || userMessagesText.includes('sao paulo') || userMessagesText.includes('sp')) {
-    region = { city: 'São Paulo', state: 'SP', ddd: '11' };
-  }
 
   // Tabela de preços Medida Certa 50 STD
   const getPreco = (idadeStr: string, isCnpj: boolean): { preco: number, faixa: string } => {
@@ -374,60 +366,87 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
     return { preco: isCnpj ? 695.64 : 737.03, faixa: 'Acima 59 anos' };
   };
 
-  const isCnpj = lastUserMsg.includes('cnpj') || lastUserMsg.includes('mei') || lastUserMsg.includes('empresa') || lead.has_cnpj === 'sim';
+  const isGreeting = lastUserMsg === 'oi' || lastUserMsg === 'olá' || lastUserMsg === 'bom dia' || lastUserMsg === 'boa tarde' || lastUserMsg === 'ola';
+  const isAskingUse = lastUserMsg.includes('use') || lastUserMsg.includes('pague') || lastUserMsg.includes('copart') || lastUserMsg.includes('co-part') || lastUserMsg.includes('particip');
+  const isAskingDocs = lastUserMsg.includes('doc') || lastUserMsg.includes('papel') || lastUserMsg.includes('precisa') || lastUserMsg.includes('enviar') || lastUserMsg.includes('mando');
 
-  const isAskingUse = lastUserMsg.includes('use') || lastUserMsg.includes('pague') || lastUserMsg.includes('copart') || lastUserMsg.includes('co-part');
-  const isAskingDocs = lastUserMsg.includes('doc') || lastUserMsg.includes('papel') || lastUserMsg.includes('precisa') || lastUserMsg.includes('contrat');
-
-  if (stage !== 'SITUATION' && isAskingUse) {
-    response = `Com certeza! O plano funciona sim com coparticipação (conhecido como "use e pague"), onde você só paga taxas muito pequenas por consultas e exames que realmente realizar. Isso garante uma mensalidade muito mais barata no final do mês!\n\nEstou te enviando um áudio curto aqui que explica direitinho como funciona.`;
-    media = {
-      type: 'audio',
-      url: `${baseUrl}/documentos/audio_explicativo_planos.mp3`,
-      filename: 'audio_explicativo_planos.mp3'
-    };
-  } else if (stage !== 'SITUATION' && isAskingDocs) {
-    const clientName = lead.name || 'Cliente';
-    response = `Perfeito, ${clientName}! Separando esses documentos abaixo, nosso consultor já dá início à sua contratação e valida tudo na operadora:\n\n🧾 DOCUMENTOS NECESSÁRIOS:\nTITULAR\n📸 FOTOS LEGIVEIS \n\n📧 EMAIL\n🪪 RG ou CNH ( FRENTE E VERSO) \n🏠 COMPROVANTE DE RESIDENCIA \n\n*(rg e cpf fora do plastico, comprovante de residencia nao precisa estar no nome da pessoa.)*\n\nConsegue me mandar por aqui mesmo?`;
-  } else if (stage === 'SITUATION') {
-    const isGreeting = lastUserMsg === 'oi' || lastUserMsg === 'olá' || lastUserMsg === 'bom dia' || lastUserMsg === 'boa tarde' || lastUserMsg === 'ola';
-    
-    // Se o cliente cumprimentar, manda as 4 perguntas do roteiro
-    if (isGreeting || lastUserMsg === '' || lastUserMsg.includes('plano') || lastUserMsg.includes('cota')) {
+  if (stage === 'SITUATION') {
+    if (isGreeting || lastAssistantMsg === '') {
       const clientName = lead.name || 'Cliente';
-      response = `Boa Tarde! ${clientName}, Tudo bem?\n\nVou lhe pedir algumas informações para ver qual plano se encaixar melhor para voce, ok?\n\n* Idade?\n* Cidade?\n* Atualmente faz algum tratamento médico? Se Sim, Qual?\n* Possui empresa / MEI?`;
-    } else {
-      // Se responder com os dados (geralmente contém a idade)
-      const detectIdade = lastUserMsg.match(/\d+/)?.[0] || '25';
-      num_lives = '1';
-      const precoData = getPreco(detectIdade, isCnpj);
-
-      stage = 'NEED_PAYOFF';
+      response = `Olá, ${clientName}! Tudo bem?\n\nPara eu encontrar a melhor opção de plano da AUSTA para você, me conta: qual é a sua idade?`;
+    } else if (lastAssistantMsg.includes('sua idade') || lastAssistantMsg.includes('quantos anos')) {
+      // O usuário respondeu à idade (detecta se há números na resposta)
+      const detectIdade = lastUserMsg.match(/\d+/)?.[0];
+      if (detectIdade) {
+        num_lives = detectIdade; // guarda a idade temporariamente neste campo
+        response = `Entendido, ${detectIdade} anos!\n\nE qual é a sua cidade?`;
+      } else {
+        response = `Para eu poder te passar a cotação certinha, você poderia me dizer quantos anos você tem?`;
+      }
+    } else if (lastAssistantMsg.includes('sua cidade') || lastAssistantMsg.includes('onde mora')) {
+      // O usuário respondeu à cidade
+      preferred_hospitals = lastUserMsg; // guarda a cidade temporariamente neste campo
+      response = `Perfeito!\n\nAtualmente você faz algum tipo de tratamento médico ou toma algum medicamento contínuo?`;
+    } else if (lastAssistantMsg.includes('tratamento médico') || lastAssistantMsg.includes('medicamento')) {
+      // O usuário respondeu ao tratamento
+      current_plan = lastUserMsg; // guarda resposta do tratamento
+      response = `Entendido. E você possui empresa ou MEI ativo no seu nome?`;
+    } else if (lastAssistantMsg.includes('empresa ou mei')) {
+      // O usuário respondeu ao MEI
+      const isCnpjValue = lastUserMsg.includes('sim') || lastUserMsg.includes('tenho') || lastUserMsg.includes('empresa') || lastUserMsg.includes('mei') || lastUserMsg.includes('cnpj');
+      has_cnpj = isCnpjValue ? 'sim' : 'não';
       
-      const tipoContrato = isCnpj ? 'Plano Empresarial (CNPJ)' : 'Coletivo por Adesão';
-      const reajusteMês = isCnpj ? 'Junho/26' : 'Setembro/26';
-      const taxaAssociativa = isCnpj ? '' : '\nTaxa Associativa à partir de: R$ 5,00\\mensal';
+      // Concluiu toda a qualificação -> Avança para Proposta
+      stage = 'NEED_PAYOFF';
+      const idadeDetectada = num_lives || '25';
+      const precoData = getPreco(idadeDetectada, isCnpjValue);
+
+      const tipoContrato = isCnpjValue ? 'Plano Empresarial (CNPJ)' : 'Coletivo por Adesão';
+      const reajusteMês = isCnpjValue ? 'Junho/26' : 'Setembro/26';
+      const taxaAssociativa = isCnpjValue ? '' : '\nTaxa Associativa à partir de: R$ 5,00\\mensal';
 
       const clientName = lead.name || 'Cliente';
-      response = `Que ótimo, ${clientName}! Entendi perfeitamente. Como você tem MEI e mora em ${region.city}, consultei a tabela e preparei a melhor opção no plano Empresarial da AUSTA para você. Olha como fica:\n\nAUSTA – ${isCnpj ? 'Empresarial' : 'Adesão'} Medida Certa 50 STD\n✅ ${tipoContrato}\n✅ Com Coparticipação\n✅ Reajuste em ${reajusteMês}\n\n✅ EMERGENCIA 24H em todo território nacional (ABRAMGE)\n✅ Cobertura Total (Consultas, Exames, Internações e Cirurgias)\n✅ Sem limite de Uso\n\nCo-Participação\n🩺 Consultas R$ 35,00\n🩺 Emergência R$ 40,00\n🩺 Internação/Cirurgia R$ 200,00\n🩺 Exames de R$ 2,00 a R$ 200,00\n\nValores por vida/faixa etária:\n\n🧡 Faixa ${precoData.faixa} — 1 Vida(s)\nEnfermaria: R$ ${precoData.preco.toFixed(2).replace('.', ',')} (por vida)\n---------------------------${taxaAssociativa}\n\nEsse valor ficou bom para você? Podemos ver os benefícios adicionais?`;
-
+      response = `Que ótimo, ${clientName}! Com base nas suas respostas, consultei a tabela e preparei a proposta ideal no plano AUSTA Medida Certa 50 STD. Olha como fica:\n\nAUSTA – ${isCnpjValue ? 'Empresarial' : 'Adesão'} Medida Certa 50 STD\n✅ ${tipoContrato}\n✅ Com Coparticipação\n✅ Reajuste em ${reajusteMês}\n\n✅ EMERGENCIA 24H em todo território nacional (ABRAMGE)\n✅ Cobertura Total (Consultas, Exames, Internações e Cirurgias)\n✅ Sem limite de Uso\n\nCo-Participação\n🩺 Consultas R$ 35,00\n🩺 Emergência R$ 40,00\n🩺 Internação/Cirurgia R$ 200,00\n🩺 Exames de R$ 2,00 a R$ 200,00\n\nValores por vida/faixa etária:\n\n🧡 Faixa ${precoData.faixa} — 1 Vida(s)\nEnfermaria: R$ ${precoData.preco.toFixed(2).replace('.', ',')} (por vida)\n---------------------------${taxaAssociativa}\n\nO que você achou desses valores? Ficou bom para você?`;
+      
       media = {
         type: 'document',
-        url: isCnpj 
+        url: isCnpjValue 
           ? `${baseUrl}/documentos/AUSTA_Medida-Certa50_EMPRESARIAL_2025.pdf` 
           : `${baseUrl}/documentos/AUSTA_Medida-Certa50_ADESAO_2025.pdf`,
-        filename: isCnpj 
+        filename: isCnpjValue 
           ? 'AUSTA_Medida-Certa50_EMPRESARIAL_2025.pdf' 
           : 'AUSTA_Medida-Certa50_ADESAO_2025.pdf'
       };
+    } else {
+      // Se por algum motivo o fluxo quebrou, reinicia na idade
+      const clientName = lead.name || 'Cliente';
+      response = `Olá, ${clientName}! Tudo bem?\n\nPara eu encontrar a melhor opção de plano da AUSTA para você, me conta: qual é a sua idade?`;
     }
   } else if (stage === 'NEED_PAYOFF') {
-    // Apresenta benefícios e descontos
+    // Apresenta benefícios e carências Austa
     stage = 'MEETING_SCHEDULED';
-    const clientName = lead.name || 'Cliente';
-    response = `Que ótimo, ${clientName}! Com certeza, segue os benefícios adicionais exclusivos contratando hoje:\n\nBenefícios Austa contratando hoje:\n\nRedução nas carências:\n* Urgência/Emergência - Liberado para Uso\n* Consultas Simples - Liberado para Uso\n* Exames Simples - Liberado para Uso\n\nIsenção da taxa de adesão:\n* ✅ Isenção da taxa de adesão do plano.\n* ✅ (Não paga nada na contratação)\n* ✅ Sem Consulta no SPC e Serasa\n* ✅ 50% de desconto na 2ª e na 13ª mensalidade.*\n\nDesconto para nova contratação\n✅ 50% de desconto na 2ª e na 13ª mensalidade\n\nO que achou desses benefícios? Para darmos início ao cadastro e verificação na operadora, prefere enviar as fotos dos documentos por aqui mesmo ou prefere tirar as últimas dúvidas antes?`;
+    response = `Com certeza! Além desses valores, contratando hoje você garante benefícios exclusivos de redução de carências e descontos. Olha só:\n\nBenefícios Austa contratando hoje:\n\nRedução nas carências:\n* Urgência/Emergência - Liberado para Uso\n* Consultas Simples - Liberado para Uso\n* Exames Simples - Liberado para Uso\n\nIsenção da taxa de adesão:\n* ✅ Isenção da taxa de adesão do plano.\n* ✅ (Não paga nada na contratação)\n* ✅ Sem Consulta no SPC e Serasa\n* ✅ 50% de desconto na 2ª e na 13ª mensalidade.*\n\nDesconto para nova contratação\n✅ 50% de desconto na 2ª e na 13ª mensalidade\n\nPara darmos andamento ao seu cadastro e verificar as carências certinhas, você prefere enviar a foto dos documentos por aqui mesmo?`;
   } else if (stage === 'MEETING_SCHEDULED') {
-    response = `Entendi! Para darmos início ao cadastro e verificação na operadora, você prefere enviar as fotos dos documentos por aqui mesmo ou quer agendar uma ligação rápida de 2 minutos para tirarmos as últimas dúvidas?`;
+    const isDocSent = lastUserMsg.includes('[documento') || lastUserMsg.includes('[imagem') || lastUserMsg.includes('segue');
+
+    if (isDocSent) {
+      // Transiciona para Converted e explica os próximos passos
+      stage = 'CONVERTED';
+      response = `Recebi os documentos! Agora, o próximo passo é o nosso consultor humano entrar em contato para te auxiliar no cadastro final e validar tudo na operadora.\n\nDepois disso, você receberá um e-mail para preencher um questionário de saúde e, em seguida, faremos uma entrevista médica online. Mas não se preocupe, vamos te guiar em cada etapa, combinado?`;
+    } else if (isAskingUse) {
+      response = `O plano funciona sim com coparticipação (conhecido como "use e pague"), onde você só paga taxas muito pequenas por consultas e exames que realmente realizar. Isso garante uma mensalidade muito mais barata no final do mês!\n\nEstou te enviando um áudio curto aqui que explica direitinho como funciona.`;
+      media = {
+        type: 'audio',
+        url: `${baseUrl}/documentos/audio_explicativo_planos.mp3`,
+        filename: 'audio_explicativo_planos.mp3'
+      };
+    } else if (isAskingDocs || lastUserMsg.includes('ok') || lastUserMsg.includes('manda') || lastUserMsg.includes('sim') || lastUserMsg.includes('quero')) {
+      response = `Perfeito! Para darmos início à contratação, preciso que envie por aqui fotos bem legíveis dos seguintes documentos:\n\n🧾 DOCUMENTOS NECESSÁRIOS:\nTITULAR\n📸 FOTOS LEGIVEIS \n\n📧 EMAIL\n🪪 RG ou CNH (FRENTE E VERSO) \n🏠 COMPROVANTE DE RESIDENCIA\n\nAh, uma dica: na hora de tirar foto, tire o RG ou CNH fora da capinha plástica pra ficar bem visível, tá bom? E o comprovante de residência não precisa estar no seu nome, pode ser de outra pessoa sem problemas.`;
+    } else {
+      response = `Entendi. Para darmos início ao cadastro e verificação na operadora, você prefere mandar as fotos dos documentos por aqui ou quer tirar mais alguma dúvida sobre a proposta?`;
+    }
+  } else if (stage === 'CONVERTED') {
+    response = `Olá! Os seus documentos já foram encaminhados para a nossa equipe. O próximo passo é o nosso consultor humano entrar em contato para te auxiliar no cadastro final e validar tudo na operadora.\n\nDepois disso, você receberá um e-mail para preencher um questionário de saúde e, em seguida, faremos uma entrevista médica online. Mas não se preocupe, vamos te guiar em cada etapa, combinado?`;
   }
 
   return {

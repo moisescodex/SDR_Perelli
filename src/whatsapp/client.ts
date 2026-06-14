@@ -309,9 +309,9 @@ function cleanHtml(html: string): string {
 }
 
 function getTypingDelay(text: string): number {
-  const charsPerSecond = 18;
+  const charsPerSecond = 12;
   const delay = (text.length / charsPerSecond) * 1000;
-  return Math.max(1500, Math.min(delay, 6500));
+  return Math.max(2500, Math.min(delay, 9000));
 }
 
 export async function fetchUrlContent(url: string): Promise<string> {
@@ -559,9 +559,9 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
 
         // Calcula o delay de resposta consultiva (debouncing e humanização)
         const charCount = userText.length;
-        const baseDelay = 2000;
-        const perCharDelay = Math.min(charCount * 30, 8000);
-        const randomDelay = Math.floor(Math.random() * 3000) + 1000;
+        const baseDelay = 5000;
+        const perCharDelay = Math.min(charCount * 40, 10000);
+        const randomDelay = Math.floor(Math.random() * 4000) + 2000;
         const totalDelay = baseDelay + perCharDelay + randomDelay;
 
         const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -689,9 +689,9 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
 
       // Calcula o delay de resposta consultiva (debouncing e humanização)
       const charCount = userText.length;
-      const baseDelay = 2000;
-      const perCharDelay = Math.min(charCount * 30, 8000);
-      const randomDelay = Math.floor(Math.random() * 3000) + 1000;
+      const baseDelay = 5000;
+      const perCharDelay = Math.min(charCount * 40, 10000);
+      const randomDelay = Math.floor(Math.random() * 4000) + 2000;
       const totalDelay = baseDelay + perCharDelay + randomDelay;
 
       const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -823,9 +823,9 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
 
       // Delay de resposta consultiva (debouncing e humanização)
       const charCount = userText.length;
-      const baseDelay = 2000;
-      const perCharDelay = Math.min(charCount * 30, 8000);
-      const randomDelay = Math.floor(Math.random() * 3000) + 1000;
+      const baseDelay = 5000;
+      const perCharDelay = Math.min(charCount * 40, 10000);
+      const randomDelay = Math.floor(Math.random() * 4000) + 2000;
       const totalDelay = baseDelay + perCharDelay + randomDelay;
 
       const baseUrl = `${req.protocol}://${req.get('host')}`;
