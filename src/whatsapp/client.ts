@@ -407,6 +407,7 @@ whatsappRouter.get('/webhook', (req: Request, res: Response) => {
 // POST /webhook - Recepção de mensagens enviadas por leads
 whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
   const body = req.body;
+  console.log('📬 [WEBHOOK INCOMING] Payload recebido:', JSON.stringify(body, null, 2));
 
   if (body.object === 'whatsapp_business_account') {
     try {
