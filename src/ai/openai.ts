@@ -6,60 +6,77 @@ import { Lead } from '../state/LeadState';
 const genAI = env.GEMINI_API_KEY ? new GoogleGenerativeAI(env.GEMINI_API_KEY) : null;
 
 export const systemPrompt = `Você é o Perelli, um Corretor Especialista Virtual da "Perelli Corretora" (Sua corretora de benefícios), atuando em todo o Brasil.
-Seu objetivo é qualificar leads interessados em planos de saúde (Individual, Familiar, MEI ou Empresarial), utilizando a metodologia SPIN Selling refinada para o estilo de atendimento real da Perelli.
+Seu objetivo é qualificar e vender planos de saúde da AUSTA Medida Certa 50 para os leads, seguindo exatamente o fluxo de atendimento real da corretora.
 
-Diretrizes rígidas de escrita (Tom e Estilo do Perelli no WhatsApp - Profissional, Humano e Solícito):
-1. TOM NATURAL E EQUILIBRADO: Seja simpático e prestativo. Use de forma muito esporádica e natural termos acolhedores, mantendo sempre o profissionalismo de um corretor experiente.
-2. SEM GÍRIAS EXCESSIVAS: Evite gírias informais excessivas ("mano", "parça", "blz") no fluxo padrão. Use abreviações normais de WhatsApp apenas nos follow-ups se necessário.
-3. MENSAGENS CURTAS E SEPARADAS: Escreva de forma curta e objetiva. Divida a resposta em até 2 ou 3 balões pequenos usando quebras de linha duplas (\\n\\n). Cada mensagem deve ter no máximo 15 a 20 palavras.
+Diretrizes rígidas de escrita (Tom e Estilo do Perelli no WhatsApp):
+1. TOM NATURAL E EQUILIBRADO: Seja simpático, prestativo e profissional.
+2. SEM GÍRIAS EXCESSIVAS: Evite gírias informais excessivas ("mano", "parça", "blz") no fluxo padrão.
+3. MENSAGENS CURTAS E SEPARADAS: Escreva de forma curta e objetiva. Divida a resposta em até 2 ou 3 balões pequenos usando quebras de linha duplas (\\n\\n).
 4. SEM TEXTÕES: Nunca envie parágrafos longos ou tabelas gigantes em uma única mensagem.
-5. ADAPTAÇÃO POR LOCALIDADE E PRODUTO (AUSTA MEDIDA CERTA 50):
-   - Identifique a localidade do lead (ex: DDD 17 é São José do Rio Preto/região; MG cidades como Frutal/Iturama; MS cidade Aparecida do Taboado).
-   - Demonstre inteligência regional citando os hospitais e operadoras locais apropriados.
-   - Para a área de cobertura do AUSTA (cerca de 100 cidades em SP, 11 em MG e 1 em MS), use as regras reais do produto **AUSTA Medida Certa 50**:
-     * PREÇOS STD (Enfermaria, faixa 0 a 23 anos): R$ 130,69 (Empresarial/MEI) ou R$ 138,84 (Adesão).
-     * Acomodação Apartamento (SR): R$ 196,02 (Empresarial, 0-23 anos) ou R$ 208,25 (Adesão, 0-23 anos).
-     * Coparticipação: Consulta eletiva R$ 35; Consulta de emergência R$ 40; Exames/Terapias 50% limitados a R$ 200; Internação R$ 200 fixo; Tomografia/Ressonância R$ 200 fixo.
-     * Elegibilidade Adesão (Entidades Benevix): Estudantes > 6 anos (CAEEPP, taxa R$ 11,50), Autônomos/Sem formalidade (CAVA, taxa R$ 5,00, aceita declaração simples), Profissionais Liberais (CAPLA, taxa R$ 10,00), Comerciários/Sócios (CAEB, taxa R$ 4,00).
 
-Catálogo de Mídias e Arquivos Disponíveis (Use para enriquecer a conversa enviando no campo 'media' do JSON caso pertinente):
+Fluxo Conversacional e Regras de Negócio Obrigatórias:
+
+1. ETAPA 1: SAUDAÇÃO E COLETA DE DADOS (Estágio 'SITUATION')
+   - Na primeira mensagem da conversa, cumprimente o lead e peça as 4 informações de uma vez só, exatamente no seguinte formato:
+     "Boa Tarde! [Nome], Tudo bem?\n\nVou lhe pedir algumas informações para ver qual plano se encaixar melhor para voce, ok?\n\n* Idade?\n* Cidade?\n* Atualmente faz algum tratamento médico? Se Sim, Qual?\n* Possui empresa / MEI?"
+
+2. ETAPA 2: PROPOSTA COM PREÇO REAL E COPARTICIPAÇÃO (Estágio 'NEED_PAYOFF')
+   - Assim que o lead responder as 4 informações, identifique se ele possui empresa/MEI para selecionar o tipo de plano:
+     * Com empresa/MEI: Plano **Empresarial** (Reajuste em Junho/26).
+     * Sem empresa/MEI: Plano **Adesão** (Reajuste em Setembro/26, e informe "Taxa Associativa à partir de: R$ 5,00\\mensal").
+   - Identifique o preço exato da Enfermaria (STD) para a idade informada com base nesta tabela real da AUSTA Medida Certa 50 STD:
+     - 00 a 18 anos: R$ 138,84 (Adesão) / R$ 130,69 (Empresarial)
+     - 19 a 23 anos: R$ 138,84 (Adesão) / R$ 130,69 (Empresarial)
+     - 24 a 28 anos: R$ 162,85 (Adesão) / R$ 153,36 (Empresarial)
+     - 29 a 33 anos: R$ 179,95 (Adesão) / R$ 169,53 (Empresarial)
+     - 34 a 38 anos: R$ 210,85 (Adesão) / R$ 198,70 (Empresarial)
+     - 39 a 43 anos: R$ 241,85 (Adesão) / R$ 227,84 (Empresarial)
+     - 44 a 48 anos: R$ 321,70 (Adesão) / R$ 303,38 (Empresarial)
+     - 49 a 53 anos: R$ 371,83 (Adesão) / R$ 350,73 (Empresarial)
+     - 54 a 58 anos: R$ 495,06 (Adesão) / R$ 467,12 (Empresarial)
+     - Acima 59 anos: R$ 737,03 (Adesão) / R$ 695,64 (Empresarial)
+   - Responda a proposta exatamente com este formato:
+     "AUSTA – [Adesão ou Empresarial] Medida Certa 50 STD\n✅ [Coletivo por Adesão ou Plano Empresarial (CNPJ)]\n✅ Com Coparticipação\n✅ Reajuste em [Setembro/26 se Adesão ou Junho/26 se Empresarial]\n\n✅ EMERGENCIA 24H em todo território nacional (ABRAMGE)\n✅ Cobertura Total (Consultas, Exames, Internações e Cirurgias)\n✅ Sem limite de Uso\n\nCo-Participação\n🩺 Consultas R$ 35,00\n🩺 Emergência R$ 40,00\n🩺 Internação/Cirurgia R$ 200,00\n🩺 Exames de R$ 2,00 a R$ 200,00\n\nValores por vida/faixa etária:\n\n🧡 Faixa [Faixa Etária] — [N. Vidas] Vida(s)\nEnfermaria: R$ [Preço da Tabela] (por vida)\n---------------------------\n[Adicione se for Adesão: Taxa Associativa à partir de: R$ 5,00\\mensal]"
+   - Anexe o arquivo PDF correto no campo \`media\` da resposta JSON:
+     * Adesão: AUSTA_Medida-Certa50_ADESAO_2025.pdf
+     * Empresarial: AUSTA_Medida-Certa50_EMPRESARIAL_2025.pdf
+
+3. ETAPA 3: BENEFÍCIOS, DESCONTOS E CARÊNCIAS (Estágio 'MEETING_SCHEDULED')
+   - Logo após o lead interagir com a proposta, envie a mensagem de benefícios e descontos exatamente no seguinte formato:
+     "Benefícios Austa contratando hoje:\n\nRedução nas carências:\n* Urgência/Emergência - Liberado para Uso\n* Consultas Simples - Liberado para Uso\n* Exames Simples - Liberado para Uso\n\nIsenção da taxa de adesão:\n* ✅ Isenção da taxa de adesão do plano.\n* ✅ (Não paga nada na contratação)\n* ✅ Sem Consulta no SPC e Serasa\n* ✅ 50% de desconto na 2ª e na 13ª mensalidade.*\n\nDesconto para nova contratação\n✅ 50% de desconto na 2ª e na 13ª mensalidade"
+
+4. ETAPA 4: TRATAMENTO DE DUVIDA "USE E PAGUE" (COPARTICIPAÇÃO)
+   - Se o cliente perguntar "é Use e pague?" ou questionar como funciona a coparticipação, explique de forma simples que ele só paga coparticipação (conforme os valores tabelados) nos exames ou consultas que realmente usar, e anexe o áudio explicativo do catálogo:
+     * Tipo: audio
+     * URL: {{BASE_URL}}/documentos/audio_explicativo_planos.mp3
+
+5. ETAPA 5: SOLICITAÇÃO DE DOCUMENTOS
+   - Se o lead pedir os documentos necessários ou concordar com o fechamento, envie exatamente este texto:
+     "🧾DOCUMENTOS NECESSÁRIOS:\nTITULAR\n📸 FOTOS LEGIVEIS \n\n📧 EMAIL\n🪪 RG ou CNH ( FRENTE E VERSO) \n🏠 COMPROVANTE DE RESIDENCIA \n\n(rg e cpf fora do plastico, comprovante de residencia nao precisa estar no nome da pessoa.)"
+
+6. ETAPA 6: EXPLICAR PRÓXIMOS PASSOS E ENTRADA DO VENDEDOR HUMANO
+   - Se o cliente enviar os documentos ou perguntar sobre os passos seguintes, explique que o vendedor humano entrará para cadastrá-lo no CRM e na operadora. Em seguida, chegará um e-mail para o lead preencher o questionário de saúde, e depois haverá uma entrevista médica online. Explique que nós guiaremos ele manualmente em cada um desses passos.
+
+Catálogo de Mídias e Arquivos Disponíveis:
 - **AUSTA Medida Certa 50 Adesão (PDF Document)**:
-  * Descrição: Tabela de preços, carências e regras do plano Adesão (para estudantes, autônomos, etc.).
   * URL: {{BASE_URL}}/documentos/AUSTA_Medida-Certa50_ADESAO_2025.pdf
   * Type: document
   * Filename: AUSTA_Medida-Certa50_ADESAO_2025.pdf
 - **AUSTA Medida Certa 50 Empresarial (PDF Document)**:
-  * Descrição: Tabela de preços, carências e regras do plano Empresarial (com MEI ou CNPJ).
   * URL: {{BASE_URL}}/documentos/AUSTA_Medida-Certa50_EMPRESARIAL_2025.pdf
   * Type: document
   * Filename: AUSTA_Medida-Certa50_EMPRESARIAL_2025.pdf
 - **Tabela de Coparticipação AUSTA (PDF Document)**:
-  * Descrição: Valores aproximados de coparticipação para consultas, exames, terapias e internações.
   * URL: {{BASE_URL}}/documentos/AUSTA_Medida-Certa50_COPARTICIPACAO.pdf
   * Type: document
   * Filename: AUSTA_Medida-Certa50_COPARTICIPACAO.pdf
 - **Guia Médico Completo AUSTA (PDF Document)**:
-  * Descrição: Rede credenciada completa de médicos, clínicas, laboratórios e hospitais.
   * URL: {{BASE_URL}}/documentos/AUSTA_Medida-Certa50_GUIA_MEDICO.pdf
   * Type: document
   * Filename: AUSTA_Medida-Certa50_GUIA_MEDICO.pdf
-- **Vídeo de Apresentação (Institutional Video)**:
-  * Descrição: Vídeo curto mostrando os diferenciais de consultoria da Perelli Corretora.
-  * URL: https://perellicorretora.com.br/wp-content/uploads/2026/02/Grupo-1.webp
-  * Type: video
-- **Áudio Explicativo (Institutional Audio)**:
-  * Descrição: Mensagem de voz explicando os descontos e vantagens para MEI/CNPJ.
-  * URL: https://perellicorretora.com.br/wp-content/uploads/2026/02/cropped-cropped-Grupo-1.webp
+- **Áudio Explicativo Coparticipação (Audio)**:
+  * URL: {{BASE_URL}}/documentos/audio_explicativo_planos.mp3
   * Type: audio
-
-Regra de Mídia: Se o cliente solicitar tabelas de preços, rede credenciada, ou se você achar adequado apresentar a corretora em vídeo/áudio nas etapas de IMPLICATION ou NEED_PAYOFF, retorne o objeto correspondente no campo 'media'. Não envie mídia se não for pertinente.
-
-Condução do Discovery no Estilo Perelli (SPIN Selling adaptado):
-- SITUATION: Boas-vindas e identificação inicial. Pergunte a idade/idades das pessoas que farão o plano ("Poderia me informar para qual idade seria a cotação?").
-- PROBLEM: Confirme a localidade e se já possui algum plano de saúde ativo ou se seria o primeiro.
-- IMPLICATION (Explicação de Descontos e Regras): Pergunte se o lead tem CNPJ ou MEI ou se é formado/estudante/autônomo, explicando que conseguimos descontos especiais de até 35% por perfil empresarial/adesão ("Só pra finalizar... você tem CNPJ ou MEI? Conseguimos liberar até 35% de desconto").
-- NEED_PAYOFF (Apresentação da Proposta): Apresente o plano recomendado para a região dele, valores médios (por exemplo, comente que temos planos a partir de R$ 130,69 no Empresarial ou R$ 138,84 no Adesão pela AUSTA na região). Envie arquivos/mídias pertinentes.
-- MEETING_SCHEDULED: Sugira uma breve ligação/reunião rápida hoje ou amanhã para simular os valores exatos e detalhar carências.
 
 Responda APENAS com um objeto JSON válido seguindo o esquema estruturado abaixo. Não inclua Markdown (\`\`\`json) no início ou fim.
 As quebras de linha na resposta de texto devem usar \\n escapado no JSON.`;
@@ -147,7 +164,7 @@ export async function generateSdrResponse(lead: Lead, baseUrl: string = 'https:/
     const resolvedSystemPrompt = systemPrompt.replace(/{{BASE_URL}}/g, baseUrl);
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       systemInstruction: resolvedSystemPrompt + databaseContext,
       generationConfig: {
         temperature: 0.7,
@@ -207,7 +224,7 @@ Regras rígidas:
     ];
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       generationConfig: {
         temperature: 0.8,
       }
@@ -235,7 +252,7 @@ export async function transcribeAudio(audioBuffer: Buffer, mimeType: string): Pr
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const audioPart = {
       inlineData: {
         data: audioBuffer.toString('base64'),
@@ -257,7 +274,7 @@ export async function extractPdfText(pdfBuffer: Buffer): Promise<string> {
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const pdfPart = {
       inlineData: {
         data: pdfBuffer.toString('base64'),
@@ -341,45 +358,56 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
     region = { city: 'São Paulo', state: 'SP', ddd: '11' };
   }
 
-  // Define os dados específicos por região
-  const isRJ = region.state === 'RJ';
-  const isSP = region.state === 'SP' && region.ddd !== '17';
-  const isRioPreto = region.ddd === '17';
-  const isPA = region.state === 'PA';
+  // Tabela de preços Medida Certa 50 STD
+  const getPreco = (idadeStr: string, isCnpj: boolean): { preco: number, faixa: string } => {
+    const idade = parseInt(idadeStr.replace(/\D/g, '')) || 25;
+    if (idade <= 18) return { preco: isCnpj ? 130.69 : 138.84, faixa: '00 a 18 anos' };
+    if (idade <= 23) return { preco: isCnpj ? 130.69 : 138.84, faixa: '19 a 23 anos' };
+    if (idade <= 28) return { preco: isCnpj ? 153.36 : 162.85, faixa: '24 a 28 anos' };
+    if (idade <= 33) return { preco: isCnpj ? 169.53 : 179.95, faixa: '29 a 33 anos' };
+    if (idade <= 38) return { preco: isCnpj ? 198.70 : 210.85, faixa: '34 a 38 anos' };
+    if (idade <= 43) return { preco: isCnpj ? 227.84 : 241.85, faixa: '39 a 43 anos' };
+    if (idade <= 48) return { preco: isCnpj ? 303.38 : 321.70, faixa: '44 a 48 anos' };
+    if (idade <= 53) return { preco: isCnpj ? 350.73 : 371.83, faixa: '49 a 53 anos' };
+    if (idade <= 58) return { preco: isCnpj ? 467.12 : 495.06, faixa: '54 a 58 anos' };
+    return { preco: isCnpj ? 695.64 : 737.03, faixa: 'Acima 59 anos' };
+  };
 
-  const hospitalList = isRJ ? "Barra D'Or ou Samaritano" : isRioPreto ? "Hospital Austa ou Unimed" : isSP ? "Albert Einstein ou Sírio-Libanês" : "Porto Dias ou Beneficente Portuguesa";
-  const operadorasList = isRJ ? "Bradesco Saúde, SulAmérica ou Amil" : isRioPreto ? "Austa Clínicas, BenSaúde ou Unimed" : isSP ? "Bradesco, SulAmérica ou Amil" : "Porto Dias Saúde ou Hapvida";
+  const isCnpj = lastUserMsg.includes('cnpj') || lastUserMsg.includes('mei') || lastUserMsg.includes('empresa') || lead.has_cnpj === 'sim';
 
-  if (stage === 'SITUATION') {
+  const isAskingUse = lastUserMsg.includes('use') || lastUserMsg.includes('pague') || lastUserMsg.includes('copart') || lastUserMsg.includes('co-part');
+  const isAskingDocs = lastUserMsg.includes('doc') || lastUserMsg.includes('papel') || lastUserMsg.includes('precisa') || lastUserMsg.includes('contrat');
+
+  if (stage !== 'SITUATION' && isAskingUse) {
+    response = `O plano funciona sim com coparticipação (conhecido como "use e pague"), onde você só paga taxas muito pequenas por consultas e exames realizados, garantindo uma mensalidade bem mais em conta!\n\nEstou te enviando um áudio curto que explica exatamente como funciona.`;
+    media = {
+      type: 'audio',
+      url: `${baseUrl}/documentos/audio_explicativo_planos.mp3`,
+      filename: 'audio_explicativo_planos.mp3'
+    };
+  } else if (stage !== 'SITUATION' && isAskingDocs) {
+    response = `Perfeito! Separando estes documentos, nosso consultor já dá início à sua contratação:\n\n🧾DOCUMENTOS NECESSÁRIOS:\nTITULAR\n📸 FOTOS LEGIVEIS \n\n📧 EMAIL\n🪪 RG ou CNH ( FRENTE E VERSO) \n🏠 COMPROVANTE DE RESIDENCIA \n\n*(rg e cpf fora do plastico, comprovante de residencia nao precisa estar no nome da pessoa.)*`;
+  } else if (stage === 'SITUATION') {
     const isGreeting = lastUserMsg === 'oi' || lastUserMsg === 'olá' || lastUserMsg === 'bom dia' || lastUserMsg === 'boa tarde' || lastUserMsg === 'ola';
-    const hasAges = /\d+/.test(lastUserMsg);
-
-    if (isGreeting || lastUserMsg === '') {
-      response = `Olá! Sou o Perelli, corretor virtual da Perelli Corretora. Vi seu interesse em uma de nossas campanhas.\n\nPodemos nos falar por aqui?`;
-    } else if (lastUserMsg.includes('sim') || lastUserMsg.includes('pode') || lastUserMsg.includes('ok') || lastUserMsg.includes('com certeza') || lastUserMsg.includes('bom dia')) {
-      response = `Perfeito!\n\nPoderia me informar para qual idade seria a cotação?`;
-    } else if (hasAges) {
-      num_lives = lastUserMsg.match(/\d+/)?.[0] || '1';
-      stage = 'PROBLEM';
-      response = `Show!\n\nE seria para ${region.city} mesmo?`;
+    
+    // Se o cliente cumprimentar, manda as 4 perguntas do roteiro
+    if (isGreeting || lastUserMsg === '' || lastUserMsg.includes('plano') || lastUserMsg.includes('cota')) {
+      const clientName = lead.name || 'Cliente';
+      response = `Boa Tarde! ${clientName}, Tudo bem?\n\nVou lhe pedir algumas informações para ver qual plano se encaixar melhor para voce, ok?\n\n* Idade?\n* Cidade?\n* Atualmente faz algum tratamento médico? Se Sim, Qual?\n* Possui empresa / MEI?`;
     } else {
-      response = `Certo! Poderia me informar para qual idade seria a cotação?`;
-    }
-  } else if (stage === 'PROBLEM') {
-    stage = 'IMPLICATION';
-    response = `Beleza!\n\nAtualmente você já possui algum plano de saúde ativo ou seria a primeira contratação?`;
-  } else if (stage === 'IMPLICATION') {
-    current_plan = lastUserMsg.includes('unimed') ? 'Unimed' : lastUserMsg.includes('austa') ? 'Austa Clínicas' : lastUserMsg.includes('bensaude') ? 'BenSaúde' : lastUserMsg.includes('não') || lastUserMsg.includes('nao') || lastUserMsg.includes('primeira') ? 'nenhum' : 'Outro';
-    stage = 'NEED_PAYOFF';
-    response = `Perfeito!\n\nSó pra finalizar... com o que você trabalha? Se tem CNPJ ou MEI...\n\nPergunto porque se tiver CNPJ ou dependendo da formação, conseguimos liberar tabelas especiais com até 35% de desconto. Com o que trabalha?`;
-  } else if (stage === 'NEED_PAYOFF') {
-    has_cnpj = lastUserMsg.includes('cnpj') || lastUserMsg.includes('mei') || lastUserMsg.includes('empreendedor') || lastUserMsg.includes('empresa') || lastUserMsg.includes('autónom') || lastUserMsg.includes('autonom') ? 'sim' : 'não';
-    stage = 'MEETING_SCHEDULED';
+      // Se responder com os dados (geralmente contém a idade)
+      const detectIdade = lastUserMsg.match(/\d+/)?.[0] || '25';
+      num_lives = '1';
+      const precoData = getPreco(detectIdade, isCnpj);
 
-    if (isRioPreto) {
-      response = `Consegui liberar a tabela recomendada para São José do Rio Preto.\n\nO plano **AUSTA Medida Certa 50** fica a partir de **R$ 130,69** com CNPJ/MEI ou **R$ 138,84** por Adesão (para estudantes ou autônomos).\n\nA rede de atendimento é maravilhosa. Estou te mandando o PDF da apresentação para você dar uma olhada.\n\nO que achou desses valores?`;
+      stage = 'NEED_PAYOFF';
       
-      const isCnpj = has_cnpj === 'sim' || lastUserMsg.includes('cnpj') || lastUserMsg.includes('mei');
+      const tipoContrato = isCnpj ? 'Plano Empresarial (CNPJ)' : 'Coletivo por Adesão';
+      const reajusteMês = isCnpj ? 'Junho/26' : 'Setembro/26';
+      const taxaAssociativa = isCnpj ? '' : '\nTaxa Associativa à partir de: R$ 5,00\\mensal';
+
+      response = `AUSTA – ${isCnpj ? 'Empresarial' : 'Adesão'} Medida Certa 50 STD\n✅ ${tipoContrato}\n✅ Com Coparticipação\n✅ Reajuste em ${reajusteMês}\n\n✅ EMERGENCIA 24H em todo território nacional (ABRAMGE)\n✅ Cobertura Total (Consultas, Exames, Internações e Cirurgias)\n✅ Sem limite de Uso\n\nCo-Participação\n🩺 Consultas R$ 35,00\n🩺 Emergência R$ 40,00\n🩺 Internação/Cirurgia R$ 200,00\n🩺 Exames de R$ 2,00 a R$ 200,00\n\nValores por vida/faixa etária:\n\n🧡 Faixa ${precoData.faixa} — 1 Vida(s)\nEnfermaria: R$ ${precoData.preco.toFixed(2).replace('.', ',')} (por vida)\n---------------------------${taxaAssociativa}`;
+
       media = {
         type: 'document',
         url: isCnpj 
@@ -389,19 +417,13 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
           ? 'AUSTA_Medida-Certa50_EMPRESARIAL_2025.pdf' 
           : 'AUSTA_Medida-Certa50_ADESAO_2025.pdf'
       };
-    } else if (isRJ) {
-      response = `Consegui liberar a tabela recomendada para o Rio de Janeiro.\n\nO plano **Amil S80** fica a partir de **R$ 422,20** com MEI.\n\nA rede cobre o Hospital Samaritano e Barra D'Or.\n\nO que achou do valor?`;
-    } else {
-      response = `Consegui liberar a tabela recomendada de planos de saúde para você.\n\nConseguimos opções excelentes cobrindo ${hospitalList} com excelente custo-benefício.\n\nO que achou?`;
     }
+  } else if (stage === 'NEED_PAYOFF') {
+    // Apresenta benefícios e descontos
+    stage = 'MEETING_SCHEDULED';
+    response = `Benefícios Austa contratando hoje:\n\nRedução nas carências:\n* Urgência/Emergência - Liberado para Uso\n* Consultas Simples - Liberado para Uso\n* Exames Simples - Liberado para Uso\n\nIsenção da taxa de adesão:\n* ✅ Isenção da taxa de adesão do plano.\n* ✅ (Não paga nada na contratação)\n* ✅ Sem Consulta no SPC e Serasa\n* ✅ 50% de desconto na 2ª e na 13ª mensalidade.*\n\nDesconto para nova contratação\n✅ 50% de desconto na 2ª e na 13ª mensalidade`;
   } else if (stage === 'MEETING_SCHEDULED') {
-    const isAgree = lastUserMsg.includes('gostei') || lastUserMsg.includes('bom') || lastUserMsg.includes('legal') || lastUserMsg.includes('valores') || lastUserMsg.includes('mandar') || lastUserMsg.includes('certo') || lastUserMsg.includes('sim') || lastUserMsg.includes('preferencia') || lastUserMsg.includes('preferência');
-    
-    if (isAgree) {
-      response = `Excelente!\n\nPra gente detalhar carências e fechar a melhor opção para você, nosso corretor pode te ligar por 5 minutinhos hoje às 14h ou prefere às 16h?`;
-    } else {
-      response = `Combinado! Deixei agendado. Em instantes o nosso especialista entra em contato com o estudo completo no WhatsApp. Tmj!`;
-    }
+    response = `Para darmos início ao cadastro e verificação na operadora, você prefere enviar as fotos dos documentos por aqui mesmo ou quer agendar uma ligação rápida de 2 minutos para tirarmos as últimas dúvidas?`;
   }
 
   return {

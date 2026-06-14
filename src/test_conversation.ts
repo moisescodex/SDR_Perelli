@@ -21,12 +21,9 @@ async function simulateConversation() {
   // Turnos da conversa a simular
   const userMessages = [
     'Oi, bom dia! Gostaria de cotar um plano de saúde.',
-    'Seria para mim, tenho 25 anos.',
-    'Isso, seria para São José do Rio Preto mesmo.',
-    'Seria a primeira contratação, não tenho plano ativo.',
-    'Trabalho como empreendedor, tenho um MEI.',
-    'Sim, o hospital Austa é essencial pra mim.',
-    'Quero saber mais ou menos os valores.'
+    'Tenho 49 anos, moro em São José do Rio Preto, não faço nenhum tratamento e sou MEI.',
+    'Gostei da proposta. Mas esse plano é Use e pague?',
+    'Quais documentos precisa para a contratação?'
   ];
 
   for (let i = 0; i < userMessages.length; i++) {
