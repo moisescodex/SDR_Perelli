@@ -242,12 +242,14 @@ whatsappRouter.post('/api/simulate', async (req: Request, res: Response) => {
       activeDelays.delete(delayKey);
     }
 
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+
     // Resposta rápida de 1.5s na simulação local
     const timeoutId = setTimeout(async () => {
       activeDelays.delete(delayKey);
       try {
         const updatedLead = await LeadState.getLead(phone, activeChannel);
-        const sdrResult = await generateSdrResponse(updatedLead);
+        const sdrResult = await generateSdrResponse(updatedLead, baseUrl);
         
         if (sdrResult.stage !== updatedLead.stage) {
           await LeadState.updateStage(phone, activeChannel, sdrResult.stage);
@@ -558,6 +560,8 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
         const randomDelay = Math.floor(Math.random() * 3000) + 1000;
         const totalDelay = baseDelay + perCharDelay + randomDelay;
 
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+
         const timeoutId = setTimeout(async () => {
           activeDelays.delete(delayKey);
           try {
@@ -565,7 +569,7 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
             const updatedLead = await LeadState.getLead(phone, activeChannel);
 
             // Gera a resposta consultiva usando o Gemini
-            const sdrResult = await generateSdrResponse(updatedLead);
+            const sdrResult = await generateSdrResponse(updatedLead, baseUrl);
             if (sdrResult.stage !== updatedLead.stage) {
               await LeadState.updateStage(phone, activeChannel, sdrResult.stage);
               console.log(`🔄 Lead ${updatedLead.name} avançou para fase: ${sdrResult.stage}`);

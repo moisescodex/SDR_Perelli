@@ -23,15 +23,30 @@ Diretrizes rígidas de escrita (Tom e Estilo do Perelli no WhatsApp - Profission
      * Elegibilidade Adesão (Entidades Benevix): Estudantes > 6 anos (CAEEPP, taxa R$ 11,50), Autônomos/Sem formalidade (CAVA, taxa R$ 5,00, aceita declaração simples), Profissionais Liberais (CAPLA, taxa R$ 10,00), Comerciários/Sócios (CAEB, taxa R$ 4,00).
 
 Catálogo de Mídias e Arquivos Disponíveis (Use para enriquecer a conversa enviando no campo 'media' do JSON caso pertinente):
+- **AUSTA Medida Certa 50 Adesão (PDF Document)**:
+  * Descrição: Tabela de preços, carências e regras do plano Adesão (para estudantes, autônomos, etc.).
+  * URL: {{BASE_URL}}/documentos/AUSTA_Medida-Certa50_ADESAO_2025.pdf
+  * Type: document
+  * Filename: AUSTA_Medida-Certa50_ADESAO_2025.pdf
+- **AUSTA Medida Certa 50 Empresarial (PDF Document)**:
+  * Descrição: Tabela de preços, carências e regras do plano Empresarial (com MEI ou CNPJ).
+  * URL: {{BASE_URL}}/documentos/AUSTA_Medida-Certa50_EMPRESARIAL_2025.pdf
+  * Type: document
+  * Filename: AUSTA_Medida-Certa50_EMPRESARIAL_2025.pdf
+- **Tabela de Coparticipação AUSTA (PDF Document)**:
+  * Descrição: Valores aproximados de coparticipação para consultas, exames, terapias e internações.
+  * URL: {{BASE_URL}}/documentos/AUSTA_Medida-Certa50_COPARTICIPACAO.pdf
+  * Type: document
+  * Filename: AUSTA_Medida-Certa50_COPARTICIPACAO.pdf
+- **Guia Médico Completo AUSTA (PDF Document)**:
+  * Descrição: Rede credenciada completa de médicos, clínicas, laboratórios e hospitais.
+  * URL: {{BASE_URL}}/documentos/AUSTA_Medida-Certa50_GUIA_MEDICO.pdf
+  * Type: document
+  * Filename: AUSTA_Medida-Certa50_GUIA_MEDICO.pdf
 - **Vídeo de Apresentação (Institutional Video)**:
   * Descrição: Vídeo curto mostrando os diferenciais de consultoria da Perelli Corretora.
   * URL: https://perellicorretora.com.br/wp-content/uploads/2026/02/Grupo-1.webp
   * Type: video
-- **Apresentação Institucional (PDF Document)**:
-  * Descrição: PDF com a rede credenciada e serviços da corretora.
-  * URL: https://perellicorretora.com.br/wp-content/uploads/2026/02/cropped-cropped-Grupo-1.webp
-  * Type: document
-  * Filename: Apresentacao_Perelli_Corretora.pdf
 - **Áudio Explicativo (Institutional Audio)**:
   * Descrição: Mensagem de voz explicando os descontos e vantagens para MEI/CNPJ.
   * URL: https://perellicorretora.com.br/wp-content/uploads/2026/02/cropped-cropped-Grupo-1.webp
@@ -102,9 +117,9 @@ export interface SdrResponse {
   } | null;
 }
 
-export async function generateSdrResponse(lead: Lead): Promise<SdrResponse> {
+export async function generateSdrResponse(lead: Lead, baseUrl: string = 'https://sdr-perelli.onrender.com'): Promise<SdrResponse> {
   if (!genAI) {
-    return getFallbackMockResponse(lead);
+    return getFallbackMockResponse(lead, baseUrl);
   }
 
   try {
@@ -129,9 +144,11 @@ export async function generateSdrResponse(lead: Lead): Promise<SdrResponse> {
 - ID do Canal: ${lead.channel_phone_id || 'default'}
 `;
 
+    const resolvedSystemPrompt = systemPrompt.replace(/{{BASE_URL}}/g, baseUrl);
+
     const model = genAI.getGenerativeModel({
       model: 'gemini-1.5-flash',
-      systemInstruction: systemPrompt + databaseContext,
+      systemInstruction: resolvedSystemPrompt + databaseContext,
       generationConfig: {
         temperature: 0.7,
         responseMimeType: "application/json",
@@ -298,7 +315,7 @@ export function getRegionFromPhone(phone: string): { city: string, state: string
 /**
  * Motor mock de fallback para quando a API Key do Gemini não estiver configurada.
  */
-function getFallbackMockResponse(lead: Lead): SdrResponse {
+function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-perelli.onrender.com'): SdrResponse {
   const lastUserMsg = lead.history.filter(m => m.role === 'user').pop()?.content?.toLowerCase() || '';
   let stage = lead.stage;
   let response = '';
@@ -361,10 +378,16 @@ function getFallbackMockResponse(lead: Lead): SdrResponse {
 
     if (isRioPreto) {
       response = `Consegui liberar a tabela recomendada para São José do Rio Preto.\n\nO plano **AUSTA Medida Certa 50** fica a partir de **R$ 130,69** com CNPJ/MEI ou **R$ 138,84** por Adesão (para estudantes ou autônomos).\n\nA rede de atendimento é maravilhosa. Estou te mandando o PDF da apresentação para você dar uma olhada.\n\nO que achou desses valores?`;
+      
+      const isCnpj = has_cnpj === 'sim' || lastUserMsg.includes('cnpj') || lastUserMsg.includes('mei');
       media = {
         type: 'document',
-        url: 'https://perellicorretora.com.br/wp-content/uploads/2026/02/cropped-cropped-Grupo-1.webp',
-        filename: 'Apresentacao_Perelli_Corretora.pdf'
+        url: isCnpj 
+          ? `${baseUrl}/documentos/AUSTA_Medida-Certa50_EMPRESARIAL_2025.pdf` 
+          : `${baseUrl}/documentos/AUSTA_Medida-Certa50_ADESAO_2025.pdf`,
+        filename: isCnpj 
+          ? 'AUSTA_Medida-Certa50_EMPRESARIAL_2025.pdf' 
+          : 'AUSTA_Medida-Certa50_ADESAO_2025.pdf'
       };
     } else if (isRJ) {
       response = `Consegui liberar a tabela recomendada para o Rio de Janeiro.\n\nO plano **Amil S80** fica a partir de **R$ 422,20** com MEI.\n\nA rede cobre o Hospital Samaritano e Barra D'Or.\n\nO que achou do valor?`;

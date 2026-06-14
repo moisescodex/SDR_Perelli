@@ -15,6 +15,9 @@ app.use(express.urlencoded({ extended: true }));
 // Serve frontend CRM panel
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Serve documentos statically
+app.use('/documentos', express.static(path.join(__dirname, '../documentos')));
+
 // Registra endpoints do WhatsApp e CRM
 app.use(whatsappRouter);
 
