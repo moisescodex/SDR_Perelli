@@ -671,3 +671,333 @@ input:checked + .slider:before {
   border-radius: 4px;
   margin-top: 0.25rem;
 }
+
+/* TAB VISIBILITY */
+.tab-view.hidden {
+  display: none !important;
+}
+
+/* NAVIGATION TABS */
+.app-nav {
+  display: flex;
+  gap: 0.5rem;
+}
+.nav-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+.nav-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+body.light-theme .nav-tab:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.nav-tab.active {
+  color: var(--text-primary);
+  background: var(--primary-accent);
+  border-color: var(--primary-accent);
+}
+.nav-tab.active:hover {
+  background: var(--primary-accent);
+  color: var(--text-primary);
+}
+
+/* OVERRIDE MAIN CONTAINER FOR FULL WIDTH */
+.main-container {
+  display: block !important;
+  max-width: 1450px;
+  margin: 1.5rem auto;
+  padding: 0 1.5rem;
+}
+
+/* UPDATE KANBAN TO 4 COLUMNS */
+.kanban-board {
+  grid-template-columns: repeat(4, 1fr) !important;
+}
+
+/* CHANNELS AND DOCUMENTS GRID */
+.channels-grid, .docs-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .channels-grid, .docs-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* MODERN TABLE STYLING */
+.table-container {
+  overflow-x: auto;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+}
+
+body.light-theme .table-container {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.modern-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.modern-table th, .modern-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.modern-table th {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+body.light-theme .modern-table th {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.modern-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+body.light-theme .modern-table tr:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.modern-table a {
+  color: var(--primary-accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.modern-table a:hover {
+  text-decoration: underline;
+}
+
+/* UPLOAD DRAG & DROP ZONE */
+.upload-dropzone {
+  border: 2px dashed var(--card-border);
+  border-radius: 8px;
+  padding: 2rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(0,0,0,0.1);
+}
+
+.upload-dropzone:hover, .upload-dropzone.dragover {
+  border-color: var(--primary-accent);
+  background: rgba(19, 141, 117, 0.05);
+}
+
+body.light-theme .upload-dropzone {
+  background: rgba(0,0,0,0.02);
+}
+
+.dropzone-icon {
+  width: 42px;
+  height: 42px;
+  color: var(--text-secondary);
+  transition: var(--transition-smooth);
+}
+
+.upload-dropzone:hover .dropzone-icon {
+  color: var(--primary-accent);
+  transform: translateY(-2px);
+}
+
+.file-name-preview {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  word-break: break-all;
+  margin-top: 0.5rem;
+}
+
+.upload-status {
+  font-size: 0.8rem;
+  margin-top: 1rem;
+  text-align: center;
+  font-weight: 500;
+}
+
+.upload-status.success {
+  color: var(--success-accent);
+}
+
+.upload-status.error {
+  color: var(--danger-accent);
+}
+
+.upload-status.info {
+  color: var(--warning-accent);
+}
+
+/* ADMIN LOGIN OVERLAY */
+.login-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(3, 7, 18, 0.8);
+  backdrop-filter: blur(16px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.35s ease;
+}
+
+.login-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.login-card {
+  background: rgba(17, 24, 39, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 2.5rem;
+  width: 400px;
+  max-width: 90%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  backdrop-filter: blur(8px);
+}
+
+body.light-theme .login-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.login-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.login-logo {
+  height: 54px;
+  width: auto;
+  margin-bottom: 0.5rem;
+  border-radius: 6px;
+}
+
+.login-header h2 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.login-header p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.login-error {
+  color: var(--danger-accent);
+  font-size: 0.8rem;
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+/* LIGHT THEME VARIABLE OVERRIDES */
+body.light-theme {
+  --bg-primary: #f1f5f9;
+  --bg-secondary: rgba(255, 255, 255, 0.8);
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.08);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --primary-accent: #0f766e;
+  --success-accent: #059669;
+  --warning-accent: #d97706;
+  --danger-accent: #dc2626;
+  --whatsapp-green: #16a34a;
+  --glow-color: rgba(15, 118, 110, 0.05);
+}
+
+body.light-theme .app-header {
+  background: rgba(241, 245, 249, 0.85);
+}
+
+body.light-theme .glow-1 {
+  background: radial-gradient(circle, rgba(15, 118, 110, 0.15) 0%, transparent 70%);
+}
+
+body.light-theme .glow-2 {
+  background: radial-gradient(circle, rgba(203, 213, 225, 0.2) 0%, transparent 70%);
+}
+
+body.light-theme .chat-drawer .drawer-content {
+  background: #f8fafc;
+}
+
+body.light-theme .chat-drawer .chat-history {
+  background: #f1f5f9;
+}
+
+body.light-theme .chat-message.user {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+body.light-theme .chat-message.bot {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+body.light-theme .chat-message.agent {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+body.light-theme .chat-input-bar {
+  background: #f8fafc;
+}
+
+body.light-theme .chat-input-bar input {
+  background: #ffffff;
+}
+
+body.light-theme .form-group input, body.light-theme .form-group textarea {
+  background: #ffffff;
+}
+
+body.light-theme .channel-select-group select {
+  background: #ffffff;
+}
+
+body.light-theme .card-count {
+  background: rgba(0, 0, 0, 0.05);
+}
+

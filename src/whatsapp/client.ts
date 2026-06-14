@@ -4,10 +4,18 @@ import { LeadState, Lead, Message } from '../state/LeadState';
 import { generateSdrResponse, transcribeAudio, generateFollowUp, generateThreeHourFollowUp, extractPdfText } from '../ai/openai';
 import { getDb, isDbConnected } from '../state/db';
 import path from 'path';
+import fs from 'fs';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execPromise = promisify(exec);
 
 export const whatsappRouter = express.Router();
 
 const activeSessions = new Set<string>();
+const activeSending = new Set<string>();
+const pendingProcessing = new Map<string, boolean>();
+const followUpTimers = new Map<string, NodeJS.Timeout>();
 
 // Rota de Login para o CRM Dashboard
 whatsappRouter.post('/api/login', (req: Request, res: Response) => {
@@ -140,6 +148,7 @@ whatsappRouter.post('/api/leads', async (req: Request, res: Response) => {
     }
 
     await LeadState.addMessage(phone, activeChannel, 'assistant', messageSent);
+    resetFollowUpTimer(phone, activeChannel);
     res.json({ success: true, lead });
   } catch (error: any) {
     console.error('Erro ao cadastrar lead ativo:', error);
@@ -159,6 +168,7 @@ whatsappRouter.post('/api/leads/:phone/manual-message', async (req: Request, res
   const activeChannel = channelPhoneId || env.META_PHONE_ID || 'default';
 
   try {
+    clearFollowUpTimer(phone, activeChannel);
     const chunks = splitMessage(text);
     for (const chunk of chunks) {
       await sendMessage(activeChannel, phone, chunk);
@@ -793,8 +803,19 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
       // Salva a mensagem no histórico do lead
       await LeadState.addMessage(phone, activeChannel, 'user', userText);
 
-      // Cancelar qualquer resposta pendente para este usuário (debouncing)
       const delayKey = `${phone}_${activeChannel}`;
+
+      // Se já estamos enviando uma resposta para este lead, enfileira o processamento
+      if (activeSending.has(delayKey)) {
+        console.log(`⏳ [WEBHOOK WHATICKET] Lead ${phone} está enviando. Enfileirando resposta.`);
+        pendingProcessing.set(delayKey, true);
+        return;
+      }
+
+      // Limpa qualquer follow-up ativo
+      clearFollowUpTimer(phone, activeChannel);
+
+      // Cancelar qualquer resposta pendente para este usuário (debouncing antes de começar a enviar)
       if (activeDelays.has(delayKey)) {
         clearTimeout(activeDelays.get(delayKey));
         activeDelays.delete(delayKey);
@@ -811,44 +832,7 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
 
       const timeoutId = setTimeout(async () => {
         activeDelays.delete(delayKey);
-        try {
-          const updatedLead = await LeadState.getLead(phone, activeChannel);
-          const sdrResult = await generateSdrResponse(updatedLead, baseUrl);
-          
-          if (sdrResult.stage !== updatedLead.stage) {
-            await LeadState.updateStage(phone, activeChannel, sdrResult.stage);
-            console.log(`🔄 Lead ${updatedLead.name} avançou para fase: ${sdrResult.stage}`);
-          }
-
-          // Salva no BD
-          await LeadState.addMessage(phone, activeChannel, 'assistant', sdrResult.response, sdrResult.media);
-
-          // Divide a resposta em mensagens consecutivas
-          const chunks = splitMessage(sdrResult.response);
-          console.log(`📤 Enviando resposta Whaticket em ${chunks.length} mensagens para ${phone}...`);
-
-          for (let i = 0; i < chunks.length; i++) {
-            const chunk = chunks[i];
-            const delay = getTypingDelay(chunk);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            await sendMessage(activeChannel, phone, chunk);
-          }
-
-          // Se a IA escolheu enviar uma mídia
-          if (sdrResult.media) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            await sendMediaMessage(
-              activeChannel,
-              phone,
-              sdrResult.media.type,
-              { link: sdrResult.media.url },
-              sdrResult.media.filename
-            );
-            console.log(`📤 Mídia enviada para ${phone}: [${sdrResult.media.type}] URL: ${sdrResult.media.url}`);
-          }
-        } catch (err) {
-          console.error(`❌ Erro ao enviar resposta Whaticket para ${phone}:`, err);
-        }
+        await triggerNextResponse(phone, activeChannel, baseUrl);
       }, totalDelay);
 
       activeDelays.set(delayKey, timeoutId);
@@ -860,6 +844,189 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
     if (!res.headersSent) res.sendStatus(200);
   }
 });
+
+// Rota para listar documentos disponíveis
+whatsappRouter.get('/api/documents', (req: Request, res: Response) => {
+  try {
+    const docsDir = path.join(__dirname, '../../documentos');
+    if (!fs.existsSync(docsDir)) {
+      return res.json([]);
+    }
+    const files = fs.readdirSync(docsDir);
+    const docsInfo = files.map(file => {
+      const filePath = path.join(docsDir, file);
+      const stats = fs.statSync(filePath);
+      return {
+        name: file,
+        size: stats.size,
+        url: `/documentos/${file}`
+      };
+    });
+    res.json(docsInfo);
+  } catch (err: any) {
+    console.error('Erro ao listar documentos:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Rota para upload de novos documentos com git commit e push automáticos
+whatsappRouter.post('/api/upload-document', async (req: Request, res: Response) => {
+  const filename = req.query.filename as string;
+  if (!filename) {
+    return res.status(400).json({ error: 'O nome do arquivo (filename) é obrigatório.' });
+  }
+
+  const safeFilename = path.basename(filename);
+
+  try {
+    const docsDir = path.join(__dirname, '../../documentos');
+    if (!fs.existsSync(docsDir)) {
+      fs.mkdirSync(docsDir, { recursive: true });
+    }
+
+    const targetPath = path.join(docsDir, safeFilename);
+    const writeStream = fs.createWriteStream(targetPath);
+
+    req.pipe(writeStream);
+
+    writeStream.on('finish', async () => {
+      console.log(`✅ Arquivo salvo localmente em: ${targetPath}`);
+
+      try {
+        const projDir = path.join(__dirname, '../..');
+        
+        console.log(`[GIT COMMIT] Adicionando e commitando: ${safeFilename}`);
+        await execPromise(`git add documentos/"${safeFilename}"`, { cwd: projDir });
+        await execPromise(`git commit -m "docs: upload automatico de ${safeFilename}"`, { cwd: projDir });
+        
+        console.log(`[GIT PUSH] Puxando para origin main...`);
+        exec(`git push origin main`, { cwd: projDir }, (pushErr, stdout, stderr) => {
+          if (pushErr) {
+            console.error(`❌ Erro no push do Git para ${safeFilename}:`, pushErr);
+          } else {
+            console.log(`✅ Git push realizado com sucesso para ${safeFilename}:`, stdout);
+          }
+        });
+
+        res.json({ success: true, url: `/documentos/${safeFilename}` });
+      } catch (gitErr: any) {
+        console.error(`⚠️ Erro ao commitar no Git:`, gitErr);
+        res.json({ 
+          success: true, 
+          url: `/documentos/${safeFilename}`, 
+          warning: `Arquivo salvo com sucesso, mas o commit no Git falhou: ${gitErr.message}` 
+        });
+      }
+    });
+
+    writeStream.on('error', (streamErr) => {
+      console.error('Erro na gravação do stream do arquivo:', streamErr);
+      res.status(500).json({ error: 'Erro ao gravar o arquivo no disco.' });
+    });
+
+  } catch (err: any) {
+    console.error('Erro no processamento do upload:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+function clearFollowUpTimer(phone: string, activeChannel: string) {
+  const delayKey = `${phone}_${activeChannel}`;
+  if (followUpTimers.has(delayKey)) {
+    clearTimeout(followUpTimers.get(delayKey));
+    followUpTimers.delete(delayKey);
+  }
+}
+
+function resetFollowUpTimer(phone: string, activeChannel: string) {
+  clearFollowUpTimer(phone, activeChannel);
+  const delayKey = `${phone}_${activeChannel}`;
+  const timerId = setTimeout(async () => {
+    followUpTimers.delete(delayKey);
+    await triggerFollowUp(phone, activeChannel);
+  }, 5 * 60 * 1000); // 5 minutos
+  followUpTimers.set(delayKey, timerId);
+}
+
+async function triggerFollowUp(phone: string, activeChannel: string) {
+  try {
+    const lead = await LeadState.getLead(phone, activeChannel);
+    if (lead.stage === 'CONVERTED' || lead.stage === 'LOST' || lead.status !== 'active') {
+      return;
+    }
+
+    const lastMsg = lead.history[lead.history.length - 1];
+    if (!lastMsg || lastMsg.role !== 'assistant') {
+      return;
+    }
+
+    console.log(`[FOLLOW-UP] Lead ${lead.name || phone} inativo há 5 minutos. Disparando follow-up...`);
+    const followUpText = await generateFollowUp(lead);
+    
+    await LeadState.addMessage(phone, activeChannel, 'assistant', followUpText);
+    await sendMessage(activeChannel, phone, followUpText);
+  } catch (error) {
+    console.error('❌ Erro no triggerFollowUp:', error);
+  }
+}
+
+async function triggerNextResponse(phone: string, activeChannel: string, baseUrl: string) {
+  const delayKey = `${phone}_${activeChannel}`;
+  if (activeSending.has(delayKey)) return;
+
+  try {
+    activeSending.add(delayKey);
+
+    const updatedLead = await LeadState.getLead(phone, activeChannel);
+    const lastMsg = updatedLead.history[updatedLead.history.length - 1];
+    if (!lastMsg || lastMsg.role !== 'user') return;
+
+    const sdrResult = await generateSdrResponse(updatedLead, baseUrl);
+    if (sdrResult.stage !== updatedLead.stage) {
+      await LeadState.updateStage(phone, activeChannel, sdrResult.stage);
+      console.log(`🔄 Lead ${updatedLead.name} avançou para fase: ${sdrResult.stage}`);
+    }
+
+    await LeadState.addMessage(phone, activeChannel, 'assistant', sdrResult.response, sdrResult.media);
+
+    const chunks = splitMessage(sdrResult.response);
+    console.log(`📤 Enviando resposta Whaticket em ${chunks.length} mensagens para ${phone}...`);
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const delay = getTypingDelay(chunk);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      await sendMessage(activeChannel, phone, chunk);
+    }
+
+    if (sdrResult.media) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await sendMediaMessage(
+        activeChannel,
+        phone,
+        sdrResult.media.type,
+        { link: sdrResult.media.url },
+        sdrResult.media.filename
+      );
+      console.log(`📤 Mídia enviada para ${phone}: [${sdrResult.media.type}] URL: ${sdrResult.media.url}`);
+    }
+
+    resetFollowUpTimer(phone, activeChannel);
+
+  } catch (err) {
+    console.error(`❌ Erro ao enviar resposta Whaticket para ${phone}:`, err);
+  } finally {
+    activeSending.delete(delayKey);
+
+    if (pendingProcessing.get(delayKey)) {
+      pendingProcessing.delete(delayKey);
+      console.log(`🔄 [QUEUE] Processando mensagem enfileirada para ${phone}...`);
+      setTimeout(async () => {
+        await triggerNextResponse(phone, activeChannel, baseUrl);
+      }, 2000);
+    }
+  }
+}
 
 // Helper para obter credenciais do canal
 export async function getChannelConfig(channelPhoneId: string): Promise<{ phone_number_id: string, access_token: string, display_phone_number: string, name: string }> {

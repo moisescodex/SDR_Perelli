@@ -5,14 +5,21 @@ const API_URL = '';
 let activeLead = null;
 let refreshInterval = null;
 let channelsList = [];
+let selectedFileToUpload = null;
+
+// Admin Credentials
+const CREDENTIALS = {
+  '@huddy': 'Prime2026.',
+  '@perelli': 'Perelli2026.',
+  '@admin': 'PerelliAdmin.'
+};
 
 // DOM Elements
 const cols = {
   SITUATION: document.getElementById('col-situation'),
-  PROBLEM: document.getElementById('col-problem'),
-  IMPLICATION: document.getElementById('col-implication'),
   NEED_PAYOFF: document.getElementById('col-payoff'),
   MEETING_SCHEDULED: document.getElementById('col-scheduled'),
+  CONVERTED: document.getElementById('col-converted'),
 };
 
 const btnRefresh = document.getElementById('btn-refresh');
@@ -32,15 +39,6 @@ const chatHistoryContainer = document.getElementById('chat-history-container');
 const manualMessageInput = document.getElementById('manual-message-input');
 const btnSendManual = document.getElementById('btn-send-manual');
 
-// Simulator elements
-const simulatorForm = document.getElementById('simulator-form');
-const simChannelSelect = document.getElementById('sim-channel');
-const simPhoneInput = document.getElementById('sim-phone');
-const simNameInput = document.getElementById('sim-name');
-const simMessageInput = document.getElementById('sim-message');
-const simAudioToggle = document.getElementById('sim-audio-toggle');
-const quickBtns = document.querySelectorAll('.quick-btn');
-
 // Channel Selector in Header
 const channelFilter = document.getElementById('channel-filter');
 
@@ -50,38 +48,182 @@ const chanNameInput = document.getElementById('chan-name');
 const chanPhoneIdInput = document.getElementById('chan-phone-id');
 const chanDisplayInput = document.getElementById('chan-display');
 const chanTokenInput = document.getElementById('chan-token');
+const channelsTableBody = document.getElementById('channels-table-body');
+
+// Navigation Tabs
+const navTabs = document.querySelectorAll('.nav-tab');
+const tabViews = document.querySelectorAll('.tab-view');
+
+// Theme Switcher Button
+const btnThemeToggle = document.getElementById('btn-theme-toggle');
+
+// Document Form & Upload
+const uploadDropzone = document.getElementById('upload-dropzone');
+const fileUploadInput = document.getElementById('file-upload-input');
+const fileNamePreview = document.getElementById('file-name-preview');
+const btnUploadFile = document.getElementById('btn-upload-file');
+const uploadStatus = document.getElementById('upload-status');
+const documentsTableBody = document.getElementById('documents-table-body');
+
+// Login Elements
+const loginOverlay = document.getElementById('login-overlay');
+const loginForm = document.getElementById('login-form');
+const loginUser = document.getElementById('login-user');
+const loginPass = document.getElementById('login-pass');
+const loginError = document.getElementById('login-error');
 
 // Start up
 document.addEventListener('DOMContentLoaded', async () => {
-  await fetchChannels();
-  fetchLeads();
+  initTheme();
+  await checkLogin();
   setupEventListeners();
-  
-  // Poll for updates every 3 seconds
-  refreshInterval = setInterval(fetchLeads, 3000);
 });
 
+async function initializeDashboard() {
+  await fetchChannels();
+  await fetchLeads();
+  await fetchDocuments();
+  
+  // Poll for updates every 3 seconds
+  if (!refreshInterval) {
+    refreshInterval = setInterval(fetchLeads, 3000);
+  }
+}
+
+async function checkLogin() {
+  const token = sessionStorage.getItem('adminToken');
+  if (!token) {
+    loginOverlay.classList.remove('hidden');
+    // Fetch channels anyway to show something if needed
+    await fetchChannels();
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/api/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.valid) {
+        loginOverlay.classList.add('hidden');
+        await initializeDashboard();
+        return;
+      }
+    }
+  } catch (err) {
+    console.error('Error verifying token:', err);
+  }
+
+  sessionStorage.removeItem('adminToken');
+  loginOverlay.classList.remove('hidden');
+  await fetchChannels();
+}
+
+function initTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'dark';
+  if (savedTheme === 'light') {
+    document.body.classList.add('light-theme');
+    btnThemeToggle.innerHTML = '🌙 Tema Dark';
+  } else {
+    document.body.classList.remove('light-theme');
+    btnThemeToggle.innerHTML = '☀️ Tema Clean';
+  }
+}
+
 function setupEventListeners() {
+  // Theme Toggle listener
+  btnThemeToggle.addEventListener('click', () => {
+    if (document.body.classList.contains('light-theme')) {
+      document.body.classList.remove('light-theme');
+      btnThemeToggle.innerHTML = '☀️ Tema Clean';
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.body.classList.add('light-theme');
+      btnThemeToggle.innerHTML = '🌙 Tema Dark';
+      localStorage.setItem('theme', 'light');
+    }
+  });
+
+  // Login Submit listener
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = loginUser.value.trim();
+    const password = loginPass.value.trim();
+
+    const btnLogin = document.getElementById('btn-login');
+    btnLogin.disabled = true;
+    btnLogin.innerText = 'Autenticando...';
+    loginError.innerText = '';
+
+    try {
+      const res = await fetch(`${API_URL}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        sessionStorage.setItem('adminToken', data.token);
+        sessionStorage.setItem('adminUser', username);
+        loginOverlay.classList.add('hidden');
+        loginError.innerText = '';
+        await initializeDashboard();
+      } else {
+        const data = await res.json();
+        loginError.innerText = data.error || 'Usuário ou senha incorretos.';
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      loginError.innerText = 'Erro ao conectar com o servidor.';
+    } finally {
+      btnLogin.disabled = false;
+      btnLogin.innerText = 'Fazer Login';
+    }
+  });
+
+  // Navigation Tabs switching
+  navTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.getAttribute('data-target');
+      
+      navTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      tabViews.forEach(view => {
+        if (view.id === target) {
+          view.classList.remove('hidden');
+        } else {
+          view.classList.add('hidden');
+        }
+      });
+
+      if (target === 'view-documents') {
+        fetchDocuments();
+      } else if (target === 'view-channels') {
+        fetchChannels();
+      } else if (target === 'view-crm') {
+        fetchLeads();
+      }
+    });
+  });
+
+  // CRM Board control listeners
   btnRefresh.addEventListener('click', fetchLeads);
   btnCloseChat.addEventListener('click', closeChatDrawer);
   drawerOverlay.addEventListener('click', closeChatDrawer);
 
-  // Send manual override or client simulation message
+  // Send manual override
   btnSendManual.addEventListener('click', sendManualMessage);
   
-  const btnSendClient = document.getElementById('btn-send-client');
-  if (btnSendClient) {
-    btnSendClient.addEventListener('click', sendClientSimulationMessage);
-  }
-
   manualMessageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
-      sendClientSimulationMessage(); // Pressing Enter sends as Client in simulation drawer!
+      sendManualMessage();
     }
   });
-
-  // Simulator Form Submit
-  simulatorForm.addEventListener('submit', handleSimulateMessage);
 
   // Channel Form Submit
   if (channelForm) {
@@ -95,33 +237,59 @@ function setupEventListeners() {
     });
   }
 
-  // Quick message simulator shortcuts
-  quickBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      simMessageInput.value = btn.getAttribute('data-text');
-      if (!simNameInput.value) {
-        simNameInput.value = 'Roberto Silva';
+  // Drag & Drop Upload Zone listeners
+  if (uploadDropzone) {
+    uploadDropzone.addEventListener('click', () => {
+      fileUploadInput.click();
+    });
+
+    fileUploadInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleSelectedFile(e.target.files[0]);
       }
     });
-  });
+
+    uploadDropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadDropzone.classList.add('dragover');
+    });
+
+    uploadDropzone.addEventListener('dragleave', () => {
+      uploadDropzone.classList.remove('dragover');
+    });
+
+    uploadDropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadDropzone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleSelectedFile(e.dataTransfer.files[0]);
+      }
+    });
+  }
+
+  if (btnUploadFile) {
+    btnUploadFile.addEventListener('click', handleUploadFile);
+  }
 
   // Configure drag and drop listeners for columns
   Object.keys(cols).forEach(stage => {
-    const colEl = cols[stage].parentElement;
-    colEl.addEventListener('dragover', (e) => {
-      e.preventDefault();
-    });
-    colEl.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      const leadDataJson = e.dataTransfer.getData('text/plain');
-      if (!leadDataJson) return;
-      
-      const lead = JSON.parse(leadDataJson);
-      if (lead.stage === stage) return; // Same stage, do nothing
+    const colEl = cols[stage]?.parentElement;
+    if (colEl) {
+      colEl.addEventListener('dragover', (e) => {
+        e.preventDefault();
+      });
+      colEl.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        const leadDataJson = e.dataTransfer.getData('text/plain');
+        if (!leadDataJson) return;
+        
+        const lead = JSON.parse(leadDataJson);
+        if (lead.stage === stage) return; // Same stage, do nothing
 
-      console.log(`[DRAG & DROP] Moving ${lead.name} from ${lead.stage} to ${stage}`);
-      await updateLeadStage(lead.phone, lead.channel_phone_id, stage);
-    });
+        console.log(`[DRAG & DROP] Moving ${lead.name} from ${lead.stage} to ${stage}`);
+        await updateLeadStage(lead.phone, lead.channel_phone_id, stage);
+      });
+    }
   });
 }
 
@@ -144,17 +312,26 @@ async function fetchChannels() {
       channelFilter.value = selectedVal;
     }
 
-    // Update Simulator dropdown
-    if (simChannelSelect) {
-      const selectedVal = simChannelSelect.value;
-      simChannelSelect.innerHTML = '';
-      channelsList.forEach(c => {
-        simChannelSelect.innerHTML += `<option value="${c.phone_number_id}">${escapeHTML(c.name)} (${escapeHTML(c.display_phone_number)})</option>`;
-      });
+    // Render channels in active channels table
+    if (channelsTableBody) {
+      channelsTableBody.innerHTML = '';
       if (channelsList.length === 0) {
-        simChannelSelect.innerHTML = '<option value="default">Canal Padrão</option>';
+        channelsTableBody.innerHTML = `
+          <tr>
+            <td colspan="3" style="text-align: center; color: var(--text-secondary);">Nenhum canal de WhatsApp cadastrado.</td>
+          </tr>
+        `;
+      } else {
+        channelsList.forEach(c => {
+          channelsTableBody.innerHTML += `
+            <tr>
+              <td><strong>${escapeHTML(c.name)}</strong></td>
+              <td>${escapeHTML(c.display_phone_number)} (ID: ${escapeHTML(c.phone_number_id)})</td>
+              <td><span style="color: var(--success-accent); font-weight: 600;">● Conectado</span></td>
+            </tr>
+          `;
+        });
       }
-      simChannelSelect.value = selectedVal || simChannelSelect.firstElementChild?.value || 'default';
     }
   } catch (error) {
     console.error('Error fetching channels:', error);
@@ -205,6 +382,9 @@ async function handleSaveChannel() {
  * Fetch all leads and render them on the Kanban board
  */
 async function fetchLeads() {
+  // Only fetch if logged in
+  if (sessionStorage.getItem('isAdminLoggedIn') !== 'true') return;
+
   try {
     const channelId = channelFilter ? channelFilter.value : '';
     const url = channelId ? `${API_URL}/api/leads?channelPhoneId=${channelId}` : `${API_URL}/api/leads`;
@@ -234,11 +414,11 @@ async function fetchLeads() {
 function renderKanban(leads) {
   // Clear columns
   Object.keys(cols).forEach(key => {
-    cols[key].innerHTML = '';
+    if (cols[key]) cols[key].innerHTML = '';
   });
 
   // Count items
-  const counts = { SITUATION: 0, PROBLEM: 0, IMPLICATION: 0, NEED_PAYOFF: 0, MEETING_SCHEDULED: 0 };
+  const counts = { SITUATION: 0, NEED_PAYOFF: 0, MEETING_SCHEDULED: 0, CONVERTED: 0 };
 
   leads.forEach(lead => {
     const stage = lead.stage || 'SITUATION';
@@ -251,9 +431,11 @@ function renderKanban(leads) {
 
   // Update counts in DOM
   Object.keys(cols).forEach(key => {
-    const colParent = cols[key].parentElement;
-    const countEl = colParent.querySelector('.card-count');
-    if (countEl) countEl.innerText = counts[key];
+    if (cols[key]) {
+      const colParent = cols[key].parentElement;
+      const countEl = colParent.querySelector('.card-count');
+      if (countEl) countEl.innerText = counts[key] || 0;
+    }
   });
 }
 
@@ -280,7 +462,7 @@ function createLeadCard(lead) {
   card.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <div class="card-lead-name">${escapeHTML(lead.name || 'Cliente Sem Nome')}</div>
-      <span style="font-size:0.65rem; background:rgba(19, 141, 117, 0.2); color:#eff6ff; padding:1px 5px; border-radius:4px;">${escapeHTML(channelName)}</span>
+      <span style="font-size:0.65rem; background:rgba(19, 141, 117, 0.2); color:var(--text-primary); padding:1px 5px; border-radius:4px;">${escapeHTML(channelName)}</span>
     </div>
     <div class="card-lead-phone">${escapeHTML(lead.phone)}</div>
     <div class="card-lead-cart-preview">${escapeHTML(cnpjText)}</div>
@@ -322,10 +504,10 @@ function updateDrawerDetails(lead) {
   chatLeadPhone.innerHTML = `${escapeHTML(lead.phone)} <span style="font-size:0.75rem; color:var(--text-secondary);">Canal: ${escapeHTML(channelLabel)}</span>`;
   chatLeadStage.innerText = lead.stage;
   
-  chatLeadCnpj.innerText = lead.has_cnpj ? lead.has_cnpj.toUpperCase() : 'Não identificado';
-  chatLeadPlan.innerText = lead.current_plan ? lead.current_plan : 'Não identificado';
-  chatLeadLives.innerText = lead.num_lives ? lead.num_lives : 'Não identificado';
-  chatLeadHospitals.innerText = lead.preferred_hospitals ? lead.preferred_hospitals : 'Não identificado';
+  if (chatLeadCnpj) chatLeadCnpj.innerText = lead.has_cnpj ? lead.has_cnpj.toUpperCase() : 'Não qualificado';
+  if (chatLeadPlan) chatLeadPlan.innerText = lead.current_plan ? lead.current_plan : 'Não qualificado';
+  if (chatLeadLives) chatLeadLives.innerText = lead.num_lives ? lead.num_lives : 'Não qualificado';
+  if (chatLeadHospitals) chatLeadHospitals.innerText = lead.preferred_hospitals ? lead.preferred_hospitals : 'Não qualificado';
 }
 
 function closeChatDrawer() {
@@ -435,56 +617,6 @@ async function sendManualMessage() {
 }
 
 /**
- * Send client simulation message from active chat drawer
- */
-async function sendClientSimulationMessage() {
-  if (!activeLead) return;
-  const text = manualMessageInput.value.trim();
-  if (!text) return;
-
-  const inputEl = manualMessageInput;
-  const btnSendClient = document.getElementById('btn-send-client');
-  
-  inputEl.disabled = true;
-  if (btnSendClient) btnSendClient.disabled = true;
-
-  try {
-    const res = await fetch(`${API_URL}/api/simulate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        phone: activeLead.phone,
-        name: activeLead.name || 'Cliente Simulado',
-        text: text,
-        isAudio: false,
-        channelPhoneId: activeLead.channel_phone_id
-      })
-    });
-
-    if (res.ok) {
-      inputEl.value = '';
-      // Exibe imediatamente o texto enviado pelo usuário no histórico
-      await fetchChatHistory(activeLead.phone, activeLead.channel_phone_id);
-      scrollToBottom();
-
-      // Recarrega o lead (e a resposta do bot que vem após 1.5s)
-      setTimeout(async () => {
-        await fetchLeads();
-        scrollToBottom();
-      }, 1600);
-    } else {
-      alert('Erro ao enviar simulação de cliente');
-    }
-  } catch (err) {
-    console.error('Error sending client simulation:', err);
-  } finally {
-    inputEl.disabled = false;
-    if (btnSendClient) btnSendClient.disabled = false;
-    inputEl.focus();
-  }
-}
-
-/**
  * Move lead stage manually
  */
 async function updateLeadStage(phone, channelPhoneId, stage) {
@@ -508,45 +640,87 @@ async function updateLeadStage(phone, channelPhoneId, stage) {
 }
 
 /**
- * Handle Simulator Send Submission
+ * Document Drag & Drop File Handlers
  */
-async function handleSimulateMessage() {
-  const channelPhoneId = simChannelSelect.value;
-  const phone = simPhoneInput.value.trim();
-  const name = simNameInput.value.trim();
-  const text = simMessageInput.value.trim();
-  const isAudio = simAudioToggle.checked;
+function handleSelectedFile(file) {
+  selectedFileToUpload = file;
+  fileNamePreview.innerText = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+  btnUploadFile.disabled = false;
+  uploadStatus.innerText = '';
+  uploadStatus.className = 'upload-status';
+}
 
-  if (!phone || !text) return;
+async function handleUploadFile() {
+  if (!selectedFileToUpload) return;
 
-  const btnSend = document.getElementById('btn-send-sim');
-  btnSend.disabled = true;
-  btnSend.innerText = 'Enviando...';
+  btnUploadFile.disabled = true;
+  uploadStatus.innerText = 'Enviando documento e sincronizando com o Git (isso pode levar alguns segundos)...';
+  uploadStatus.className = 'upload-status info';
 
   try {
-    const res = await fetch(`${API_URL}/api/simulate`, {
+    const filenameEncoded = encodeURIComponent(selectedFileToUpload.name);
+    const res = await fetch(`/api/upload-document?filename=${filenameEncoded}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, name, text, isAudio, channelPhoneId })
+      body: selectedFileToUpload
     });
 
     if (res.ok) {
-      simMessageInput.value = '';
-      // Wait for debouncer simulation + processing to reload leads
-      setTimeout(async () => {
-        await fetchLeads();
-        btnSend.disabled = false;
-        btnSend.innerText = 'Simular Envio';
-      }, 2000);
+      const data = await res.json();
+      uploadStatus.innerText = '✅ Documento enviado e commitado com sucesso!';
+      uploadStatus.className = 'upload-status success';
+      
+      // Clear selected file
+      selectedFileToUpload = null;
+      fileNamePreview.innerText = 'Nenhum arquivo selecionado';
+      fileUploadInput.value = '';
+      btnUploadFile.disabled = true;
+
+      // Reload files list
+      await fetchDocuments();
     } else {
-      alert('Erro ao simular envio de mensagem');
-      btnSend.disabled = false;
-      btnSend.innerText = 'Simular Envio';
+      const err = await res.json();
+      uploadStatus.innerText = `❌ Erro no upload: ${err.error || 'Falha desconhecida'}`;
+      uploadStatus.className = 'upload-status error';
+      btnUploadFile.disabled = false;
     }
   } catch (error) {
-    console.error('Error in simulator:', error);
-    btnSend.disabled = false;
-    btnSend.innerText = 'Simular Envio';
+    console.error('Error uploading document:', error);
+    uploadStatus.innerText = '❌ Erro ao enviar o arquivo para o servidor.';
+    uploadStatus.className = 'upload-status error';
+    btnUploadFile.disabled = false;
+  }
+}
+
+async function fetchDocuments() {
+  if (!documentsTableBody) return;
+
+  try {
+    const res = await fetch(`${API_URL}/api/documents`);
+    if (!res.ok) throw new Error('Failed to fetch documents');
+    const docs = await res.json();
+
+    documentsTableBody.innerHTML = '';
+    if (docs.length === 0) {
+      documentsTableBody.innerHTML = `
+        <tr>
+          <td colspan="3" style="text-align: center; color: var(--text-secondary);">Nenhum documento na pasta /documentos.</td>
+        </tr>
+      `;
+    } else {
+      docs.forEach(doc => {
+        const sizeKB = (doc.size / 1024).toFixed(1);
+        const sizeText = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
+        documentsTableBody.innerHTML += `
+          <tr>
+            <td><strong>${escapeHTML(doc.name)}</strong></td>
+            <td>${sizeText}</td>
+            <td><a href="${escapeHTML(doc.url)}" target="_blank">🔗 Visualizar / Baixar</a></td>
+          </tr>
+        `;
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching documents:', error);
   }
 }
 
