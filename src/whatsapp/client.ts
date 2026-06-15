@@ -17,6 +17,40 @@ const activeSending = new Set<string>();
 const pendingProcessing = new Map<string, boolean>();
 const followUpTimers = new Map<string, NodeJS.Timeout>();
 
+// Tracker de mensagens enviadas pela IA para detecção de intervenção humana nas webhooks
+class BotMessageTracker {
+  private sentMessages = new Set<string>();
+
+  private getTrackKey(phone: string, text: string): string {
+    const cleanText = text
+      .replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '') // remove emojis
+      .replace(/\s+/g, '') // remove todos os espaços
+      .toLowerCase();
+    const cleanPhone = phone.replace(/\D/g, '');
+    return `${cleanPhone}_${cleanText}`;
+  }
+
+  public track(phone: string, text: string) {
+    const key = this.getTrackKey(phone, text);
+    this.sentMessages.add(key);
+    // Remove após 30 segundos
+    setTimeout(() => {
+      this.sentMessages.delete(key);
+    }, 30000);
+  }
+
+  public hasAndConsume(phone: string, text: string): boolean {
+    const key = this.getTrackKey(phone, text);
+    if (this.sentMessages.has(key)) {
+      this.sentMessages.delete(key);
+      return true;
+    }
+    return false;
+  }
+}
+
+export const botTracker = new BotMessageTracker();
+
 // Rota de Login para o CRM Dashboard
 whatsappRouter.post('/api/login', (req: Request, res: Response) => {
   const { username, password } = req.body;
@@ -131,6 +165,7 @@ whatsappRouter.post('/api/leads', async (req: Request, res: Response) => {
   try {
     let lead = await LeadState.getLead(phone, activeChannel);
     lead.name = name || 'Lead';
+    lead.requires_intervention = false; // Reactivate AI SDR for this lead if it was stopped!
     await LeadState.saveLead(lead);
 
     let messageSent = initialMessage;
@@ -180,6 +215,7 @@ whatsappRouter.post('/api/leads/:phone/manual-message', async (req: Request, res
     lead.unread = false;
     lead.follow_up_level = 0; // Reset follow-up cadence on manual intervention
     lead.last_follow_up_at = null;
+    lead.requires_intervention = true; // Mark that salesperson took control, stopping AI responses!
     await LeadState.saveLead(lead);
     await LeadState.addMessage(phone, activeChannel, 'assistant', `[Resposta manual]: ${text}`);
 
@@ -313,6 +349,13 @@ whatsappRouter.post('/api/simulate', async (req: Request, res: Response) => {
       activeDelays.delete(delayKey);
       try {
         const updatedLead = await LeadState.getLead(phone, activeChannel);
+        
+        // Se o corretor humano interveio, cancela a resposta da IA
+        if (updatedLead.requires_intervention) {
+          console.log(`[AI SDR STOPPED - SIMULATOR] O corretor interveio para o lead ${phone}. AI não responderá.`);
+          return;
+        }
+
         const sdrResult = await generateSdrResponse(updatedLead, baseUrl);
         
         if (sdrResult.stage !== updatedLead.stage) {
@@ -661,6 +704,12 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
             // Recarrega o lead atualizado
             const updatedLead = await LeadState.getLead(phone, activeChannel);
 
+            // Se o corretor humano interveio, cancela a resposta da IA
+            if (updatedLead.requires_intervention) {
+              console.log(`[AI SDR STOPPED] O corretor interveio para o lead ${phone}. AI não responderá.`);
+              return;
+            }
+
             // Gera a resposta consultiva usando o Gemini
             const sdrResult = await generateSdrResponse(updatedLead, baseUrl);
             if (sdrResult.stage !== updatedLead.stage) {
@@ -729,7 +778,61 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
 
       const fromMe = data.key.fromMe;
       if (fromMe) {
-        return; // Ignora mensagens enviadas pelo próprio bot
+        // Ignora mensagens enviadas pelo próprio bot, mas detecta intervenção do agente humano
+        const remoteJid = data.key.remoteJid;
+        if (remoteJid && remoteJid.includes('@s.whatsapp.net')) {
+          const phone = remoteJid.split('@')[0];
+          const activeChannel = instance;
+          
+          let textToCheck = '';
+          const message = data.message || {};
+          if (message.conversation) {
+            textToCheck = message.conversation;
+          } else if (message.extendedTextMessage) {
+            textToCheck = message.extendedTextMessage.text || '';
+          } else if (message.imageMessage) {
+            textToCheck = message.imageMessage.caption || '';
+          } else if (message.videoMessage) {
+            textToCheck = message.videoMessage.caption || '';
+          } else if (message.documentMessage) {
+            textToCheck = message.documentMessage.title || message.documentMessage.fileName || '';
+          } else if (message.audioMessage) {
+            textToCheck = 'audio';
+          }
+
+          const isMedia = !!(message.imageMessage || message.videoMessage || message.documentMessage || message.audioMessage);
+          if (isMedia) {
+            const isBotMedia = botTracker.hasAndConsume(phone, textToCheck) || 
+                               botTracker.hasAndConsume(phone, 'media') || 
+                               botTracker.hasAndConsume(phone, 'audio') || 
+                               botTracker.hasAndConsume(phone, 'document') || 
+                               botTracker.hasAndConsume(phone, 'image');
+            if (!isBotMedia) {
+              console.log(`[HUMAN INTERVENTION DETECTED - EVOLUTION MEDIA] O vendedor humano enviou uma mídia manual para ${phone}. Parando a IA.`);
+              try {
+                const lead = await LeadState.getLead(phone, activeChannel);
+                lead.requires_intervention = true;
+                await LeadState.saveLead(lead);
+              } catch (err) {
+                console.error('Erro ao marcar requires_intervention no Evolution:', err);
+              }
+            }
+            return;
+          }
+
+          const isBot = botTracker.hasAndConsume(phone, textToCheck);
+          if (!isBot) {
+            console.log(`[HUMAN INTERVENTION DETECTED - EVOLUTION] O vendedor humano enviou uma mensagem manual para ${phone}: "${textToCheck}". Parando a IA.`);
+            try {
+              const lead = await LeadState.getLead(phone, activeChannel);
+              lead.requires_intervention = true;
+              await LeadState.saveLead(lead);
+            } catch (err) {
+              console.error('Erro ao marcar requires_intervention no Evolution:', err);
+            }
+          }
+        }
+        return;
       }
 
       const remoteJid = data.key.remoteJid;
@@ -791,6 +894,12 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
           // Recarrega o lead atualizado
           const updatedLead = await LeadState.getLead(phone, activeChannel);
 
+          // Se o corretor humano interveio, cancela a resposta da IA
+          if (updatedLead.requires_intervention) {
+            console.log(`[AI SDR STOPPED - EVOLUTION] O corretor interveio para o lead ${phone}. AI não responderá.`);
+            return;
+          }
+
           // Gera a resposta consultiva usando o Gemini
           const sdrResult = await generateSdrResponse(updatedLead, baseUrl);
           if (sdrResult.stage !== updatedLead.stage) {
@@ -845,8 +954,52 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
       const ticket = body.ticket;
       const contact = ticket.contact || {};
 
-      // Ignora mensagens que o próprio agente ou bot enviou
+      // Ignora mensagens que o próprio bot enviou, mas detecta intervenção do agente humano
       if (msg.fromMe === true) {
+        const phone = msg.from || contact.number;
+        const activeChannel = String(ticket.whatsappId || 'default');
+        
+        if (phone) {
+          let textToCheck = '';
+          if (msg.text && msg.text.body) {
+            textToCheck = msg.text.body;
+          } else if (typeof msg.body === 'string') {
+            textToCheck = msg.body;
+          }
+
+          // Se for mídia, tenta bater com o nome do arquivo ou tipo
+          const isMedia = !!(msg.mediaUrl || msg.url);
+          if (isMedia) {
+            const filename = msg.document?.filename || msg.filename || '';
+            const type = msg.mediaType || '';
+            const isBotMedia = botTracker.hasAndConsume(phone, filename) || 
+                               botTracker.hasAndConsume(phone, type) ||
+                               botTracker.hasAndConsume(phone, 'media') ||
+                               botTracker.hasAndConsume(phone, textToCheck);
+            if (!isBotMedia) {
+              console.log(`[HUMAN INTERVENTION DETECTED - WHATICKET MEDIA] O vendedor humano enviou uma mídia manual para ${phone}. Parando a IA.`);
+              try {
+                const lead = await LeadState.getLead(phone, activeChannel);
+                lead.requires_intervention = true;
+                await LeadState.saveLead(lead);
+              } catch (err) {
+                console.error('Erro ao marcar requires_intervention no Whaticket:', err);
+              }
+            }
+          } else {
+            const isBot = botTracker.hasAndConsume(phone, textToCheck);
+            if (!isBot) {
+              console.log(`[HUMAN INTERVENTION DETECTED - WHATICKET] O vendedor humano enviou uma mensagem manual para ${phone}: "${textToCheck}". Parando a IA.`);
+              try {
+                const lead = await LeadState.getLead(phone, activeChannel);
+                lead.requires_intervention = true;
+                await LeadState.saveLead(lead);
+              } catch (err) {
+                console.error('Erro ao marcar requires_intervention no Whaticket:', err);
+              }
+            }
+          }
+        }
         return;
       }
 
@@ -1068,7 +1221,7 @@ function resetFollowUpTimer(phone: string, activeChannel: string) {
 async function triggerFollowUp(phone: string, activeChannel: string) {
   try {
     const lead = await LeadState.getLead(phone, activeChannel);
-    if (lead.stage === 'CONVERTED' || lead.stage === 'LOST' || lead.status !== 'active') {
+    if (lead.stage === 'CONVERTED' || lead.stage === 'LOST' || lead.status !== 'active' || lead.requires_intervention) {
       return;
     }
 
@@ -1125,6 +1278,13 @@ async function triggerNextResponse(phone: string, activeChannel: string, baseUrl
     activeSending.add(delayKey);
 
     const updatedLead = await LeadState.getLead(phone, activeChannel);
+    
+    // Se o corretor humano interveio, cancela a resposta da IA
+    if (updatedLead.requires_intervention) {
+      console.log(`[AI SDR STOPPED - WHATICKET] O corretor interveio para o lead ${phone}. AI não responderá.`);
+      return;
+    }
+
     const lastMsg = updatedLead.history[updatedLead.history.length - 1];
     if (!lastMsg || lastMsg.role !== 'user') return;
 
@@ -1419,6 +1579,7 @@ export async function sendEvolutionMediaMessage(
 // Funções de chamada da API do WhatsApp Cloud (Graph API) ou gateways alternativos
 export async function sendMessage(channelPhoneId: string, to: string, text: string) {
   try {
+    botTracker.track(to, text);
     const config = await getChannelConfig(channelPhoneId);
     if (!config.access_token || config.phone_number_id === 'default') {
       console.warn(`⚠️ Envio de mensagem ignorado: Canal '${channelPhoneId}' sem chave cadastrada.`);
@@ -1539,6 +1700,8 @@ export async function sendMediaMessage(
   filename?: string
 ) {
   try {
+    const trackVal = filename || type || 'media';
+    botTracker.track(to, trackVal);
     const config = await getChannelConfig(channelPhoneId);
     if (!config.access_token || config.phone_number_id === 'default') {
       console.warn(`⚠️ Envio de mídia ignorado: Canal '${channelPhoneId}' sem chave cadastrada.`);

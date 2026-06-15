@@ -68,6 +68,7 @@ Diretrizes rígidas de escrita (Tom e Estilo do Perelli no WhatsApp):
 4. MENSAGENS CURTAS E SEPARADAS: Escreva de forma curta e objetiva. Divida a resposta em até 2 ou 3 balões pequenos usando quebras de linha duplas (\\n\\n).
 5. UMA PERGUNTA POR VEZ: Nunca peça várias informações em uma única mensagem. Peça apenas um dado de cada vez e espere o cliente responder antes de perguntar o próximo.
 6. NÃO FALE DOS PRÓXIMOS PASSOS ANTES DA HORA: Nunca fale sobre "próximos passos" (como vendedor humano ligando, preenchimento de questionário de saúde ou entrevista médica) nas etapas de qualificação ou proposta. Essa conversa sobre os próximos passos do pós-venda é estritamente restrita para o final do fluxo, depois que o cliente já tiver enviado todos os documentos necessários.
+7. NÃO ENVIE ARQUIVOS PDF: Sob nenhuma hipótese anexe ou ofereça arquivos PDF com a proposta (campo \`media\` no JSON deve vir nulo ou vazio para PDFs). A proposta e os benefícios devem ser enviados exclusivamente em formato de texto no corpo da mensagem.
 
 Fluxo Conversacional e Regras de Negócio Obrigatórias:
 
@@ -77,9 +78,9 @@ Fluxo Conversacional e Regras de Negócio Obrigatórias:
      * Pergunta 2 (após receber a idade): Valide a idade de forma simpática e pergunte a cidade onde ele reside. (Ex: "Entendi! E qual é a sua cidade?").
      * Pergunta 3 (após receber a cidade): Valide e pergunte se ele atualmente faz algum tratamento médico (Se sim, qual?). (Ex: "Perfeito. Atualmente você faz algum tipo de tratamento médico ou acompanhamento?").
      * Pergunta 4 (após receber o tratamento): Valide e pergunte se ele possui empresa ou MEI ativo. (Ex: "Certo! E você possui CNPJ ou MEI ativo?").
-   - O robô não pode avançar para a proposta (Estágio 'NEED_PAYOFF') sem ter coletado e confirmado TODAS as 4 informações. Se o cliente responder apenas "Ok" ou desviar do assunto, o robô deve insistir de forma simpática na pergunta que ficou pendente.
+   - O robô não pode avançar para a proposta sem ter coletado e confirmado TODAS as 4 informações. Se o cliente responder apenas "Ok" ou desviar do assunto, o robô deve insistir de forma simpática na pergunta que ficou pendente.
 
-2. ETAPA 2: PROPOSTA COM PREÇO REAL E COPARTICIPAÇÃO (Estágio 'NEED_PAYOFF')
+2. ETAPA 2: PROPOSTA COM PREÇO REAL E BENEFÍCIOS IMEDIATOS (Estágio 'MEETING_SCHEDULED')
    - Assim que o lead responder as 4 informações, identifique se ele possui empresa/MEI para selecionar o tipo de plano:
      * Com empresa/MEI: Plano **Empresarial** (Reajuste em Junho/26).
      * Sem empresa/MEI: Plano **Adesão** (Reajuste em Setembro/26, e informe "Taxa Associativa à partir de: R$ 5,00\\mensal").
@@ -94,15 +95,11 @@ Fluxo Conversacional e Regras de Negócio Obrigatórias:
      - 49 a 53 anos: R$ 371,83 (Adesão) / R$ 350,73 (Empresarial)
      - 54 a 58 anos: R$ 495,06 (Adesão) / R$ 467,12 (Empresarial)
      - Acima 59 anos: R$ 737,03 (Adesão) / R$ 695,64 (Empresarial)
-   - Apresente a proposta do plano de saúde em um formato amigável, iniciando com uma introdução simpática e confirmando as informações dele, e terminando com uma pergunta de continuidade. O bloco da proposta em si deve seguir este padrão:
-     "AUSTA – [Adesão ou Empresarial] Medida Certa 50 STD\n✅ [Coletivo por Adesão ou Plano Empresarial (CNPJ)]\n✅ Com Coparticipação\n✅ Reajuste em [Setembro/26 se Adesão ou Junho/26 se Empresarial]\n\n✅ EMERGENCIA 24H em todo território nacional (ABRAMGE)\n✅ Cobertura Total (Consultas, Exames, Internações e Cirurgias)\n✅ Sem limite de Uso\n\nCo-Participação\n🩺 Consultas R$ 35,00\n🩺 Emergência R$ 40,00\n🩺 Internação/Cirurgia R$ 200,00\n🩺 Exames de R$ 2,00 a R$ 200,00\n\nValores por vida/faixa etária:\n\n🧡 Faixa [Faixa Etária] — [N. Vidas] Vida(s)\nEnfermaria: R$ [Preço da Tabela] (por vida)\n---------------------------\n[Adicione se for Adesão: Taxa Associativa à partir de: R$ 5,00\\mensal]"
-   - Anexe o arquivo PDF correto no campo \`media\` da resposta JSON:
-     * Adesão: AUSTA_Medida-Certa50_ADESAO_2025.pdf
-     * Empresarial: AUSTA_Medida-Certa50_EMPRESARIAL_2025.pdf
-
-3. ETAPA 3: BENEFÍCIOS, DESCONTOS E CARÊNCIAS (Estágio 'MEETING_SCHEDULED')
-   - Logo após o lead interagir com a proposta, envie a mensagem de benefícios e descontos. Inicie com um comentário de conexão simpático e termine com uma pergunta chamando para o envio de documentos. A lista de benefícios em si deve seguir este formato:
+   - Apresente a proposta do plano de saúde em um formato amigável, confirmando as informações dele. Ao enviar o preço para a idade informada pelo lead, em vez de enviar a faixa etária da tabela (ex: 44 a 48 anos), envie apenas a idade exata informada pelo lead. Exemplo: se o lead tem 46 anos, escreva '🧡 Idade: 46 anos — 1 Vida(s)' com o preço da respectiva faixa. O bloco da proposta em si deve seguir exatamente este padrão (SEM anexar PDF):
+     "AUSTA – [Adesão ou Empresarial] Medida Certa 50 STD\n✅ [Coletivo por Adesão ou Plano Empresarial (CNPJ)]\n✅ Com Coparticipação\n✅ Reajuste em [Setembro/26 se Adesão ou Junho/26 se Empresarial]\n\n✅ EMERGENCIA 24H em todo território nacional (ABRAMGE)\n✅ Cobertura Total (Consultas, Exames, Internações e Cirurgias)\n✅ Sem limite de Uso\n\nCo-Participação\n🩺 Consultas R$ 35,00\n🩺 Emergência R$ 40,00\n🩺 Internação/Cirurgia R$ 200,00\n🩺 Exames de R$ 2,00 a R$ 200,00\n\nValores por vida/faixa etária:\n\n🧡 Idade: [Idade Informada] anos — [N. Vidas] Vida(s)\nEnfermaria: R$ [Preço da Tabela] (por vida)\n---------------------------\n[Adicione se for Adesão: Taxa Associativa à partir de: R$ 5,00\\mensal]"
+   - Você DEVE enviar a mensagem de benefícios e descontos LOGO APÓS/CONJUNTAMENTE com a proposta na mesma resposta, sem esperar o cliente perguntar ou interagir. A lista de benefícios em si deve seguir este formato:
      "Benefícios Austa contratando hoje:\n\nRedução nas carências:\n* Urgência/Emergência - Liberado para Uso\n* Consultas Simples - Liberado para Uso\n* Exames Simples - Liberado para Uso\n\nIsenção da taxa de adesão:\n* ✅ Isenção da taxa de adesão do plano.\n* ✅ (Não paga nada na contratação)\n* ✅ Sem Consulta no SPC e Serasa\n* ✅ 50% de desconto na 2ª e na 13ª mensalidade.*\n\nDesconto para nova contratação\n✅ 50% de desconto na 2ª e na 13ª mensalidade"
+   - Ao final dessa mensagem unificada (Proposta + Benefícios), peça de forma simpática e educada que o cliente envie os documentos (RG/CNH e Comprovante de Residência) para dar andamento ao cadastro (transicionando para o estágio 'MEETING_SCHEDULED').
 
 4. ETAPA 4: TRATAMENTO DE DUVIDA "USE E PAGUE" (COPARTICIPAÇÃO)
    - Se o cliente perguntar "é Use e pague?" ou questionar como funciona a coparticipação, explique de forma simples e humana que ele só paga coparticipação (conforme os valores tabelados) nos exames ou consultas que realmente usar, e anexe o áudio explicativo do catálogo:
@@ -411,12 +408,12 @@ export async function generateFollowUpCadence(lead: Lead, stageIndex: number): P
         parts: [{ text: `Instrução do Sistema: O lead está sem responder. Este é o follow-up de nível ${stageIndex} que estamos enviando.
 Seu objetivo é, de forma muito informal, natural e amigável (tom de WhatsApp no Brasil, usando gírias leves como "vc", "tá", "blz", "gnt"):
 1. Perguntar se ele quer continuar com a cotação do plano de saúde/seguro ou se o dia está muito corrido.
-2. Relembrar que a Perelli Corretora consegue comparar todas as operadoras para buscar economia de até 35% caso ele tenha CNPJ ou MEI.
+2. Relembrar que são os últimos dias para aproveitar os benefícios: Redução nas carências, 50% de desconto na 2ª e na 13ª mensalidade, e Sem Taxa de Adesão.
 3. Oferecer responder direto por texto aqui no WhatsApp para não tomar tempo.
 4. Tentar obter uma resposta se quer continuar ou não, sem ser chato.
 
 Regras rígidas:
-- Limite de 18 palavras.
+- Limite de 25 palavras.
 - Retorne APENAS o texto do follow-up, sem aspas extras, sem explicações.` }]
       }
     ];
@@ -437,7 +434,12 @@ Regras rígidas:
 }
 
 export async function generateFollowUp(lead: Lead): Promise<string> {
-  return generateFollowUpCadence(lead, 4);
+  return `E aí, blz? Quer seguir c/ a cotação ou tá corrido? Últimos dias para:
+✅ Redução nas carências 
+✅ 50% de desconto na 2ª e na 13ª mensalidade.*
+✅ Sem Taxa de Adesão(Não paga nada agora para contratar)
+
+Me diz, blz?`;
 }
 
 export async function generateThreeHourFollowUp(lead: Lead): Promise<string> {
@@ -692,8 +694,8 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
       const isCnpjValue = lastUserMsg.includes('sim') || lastUserMsg.includes('tenho') || lastUserMsg.includes('empresa') || lastUserMsg.includes('mei') || lastUserMsg.includes('cnpj');
       has_cnpj = isCnpjValue ? 'sim' : 'não';
       
-      // Concluiu toda a qualificação -> Avança para Proposta
-      stage = 'NEED_PAYOFF';
+      // Concluiu toda a qualificação -> Avança diretamente para Proposta + Benefícios unificados
+      stage = 'MEETING_SCHEDULED';
       const idadeDetectada = num_lives || '25';
       const precoData = getPreco(idadeDetectada, isCnpjValue);
 
@@ -702,24 +704,20 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
       const taxaAssociativa = isCnpjValue ? '' : '\nTaxa Associativa à partir de: R$ 5,00\\mensal';
 
       const clientName = lead.name || 'Cliente';
-      response = `Que ótimo, ${clientName}! Com base nas suas respostas, consultei a tabela e preparei a proposta ideal no plano AUSTA Medida Certa 50 STD. Olha como fica:\n\nAUSTA – ${isCnpjValue ? 'Empresarial' : 'Adesão'} Medida Certa 50 STD\n✅ ${tipoContrato}\n✅ Com Coparticipação\n✅ Reajuste em ${reajusteMês}\n\n✅ EMERGENCIA 24H em todo território nacional (ABRAMGE)\n✅ Cobertura Total (Consultas, Exames, Internações e Cirurgias)\n✅ Sem limite de Uso\n\nCo-Participação\n🩺 Consultas R$ 35,00\n🩺 Emergência R$ 40,00\n🩺 Internação/Cirurgia R$ 200,00\n🩺 Exames de R$ 2,00 a R$ 200,00\n\nValores por vida/faixa etária:\n\n🧡 Faixa ${precoData.faixa} — 1 Vida(s)\nEnfermaria: R$ ${precoData.preco.toFixed(2).replace('.', ',')} (por vida)\n---------------------------${taxaAssociativa}\n\nO que você achou desses valores? Ficou bom para você?`;
       
-      media = {
-        type: 'document',
-        url: isCnpjValue 
-          ? `${baseUrl}/documentos/AUSTA_Medida-Certa50_EMPRESARIAL_2025.pdf` 
-          : `${baseUrl}/documentos/AUSTA_Medida-Certa50_ADESAO_2025.pdf`,
-        filename: isCnpjValue 
-          ? 'AUSTA_Medida-Certa50_EMPRESARIAL_2025.pdf' 
-          : 'AUSTA_Medida-Certa50_ADESAO_2025.pdf'
-      };
+      const propostaText = `Que ótimo, ${clientName}! Com base nas suas respostas, consultei a tabela e preparei a proposta ideal no plano AUSTA Medida Certa 50 STD. Olha como fica:\n\nAUSTA – ${isCnpjValue ? 'Empresarial' : 'Adesão'} Medida Certa 50 STD\n✅ ${tipoContrato}\n✅ Com Coparticipação\n✅ Reajuste em ${reajusteMês}\n\n✅ EMERGENCIA 24H em todo território nacional (ABRAMGE)\n✅ Cobertura Total (Consultas, Exames, Internações e Cirurgias)\n✅ Sem limite de Uso\n\nCo-Participação\n🩺 Consultas R$ 35,00\n🩺 Emergência R$ 40,00\n🩺 Internação/Cirurgia R$ 200,00\n🩺 Exames de R$ 2,00 a R$ 200,00\n\nValores por vida/faixa etária:\n\n🧡 Idade: ${idadeDetectada} anos — 1 Vida(s)\nEnfermaria: R$ ${precoData.preco.toFixed(2).replace('.', ',')} (por vida)\n---------------------------${taxaAssociativa}`;
+
+      const beneficiosText = `Além desses valores, contratando hoje você garante benefícios exclusivos de redução de carências e descontos. Olha só:\n\nBenefícios Austa contratando hoje:\n\nRedução nas carências:\n* Urgência/Emergência - Liberado para Uso\n* Consultas Simples - Liberado para Uso\n* Exames Simples - Liberado para Uso\n\nIsenção da taxa de adesão:\n* ✅ Isenção da taxa de adesão do plano.\n* ✅ (Não paga nada na contratação)\n* ✅ Sem Consulta no SPC e Serasa\n* ✅ 50% de desconto na 2ª e na 13ª mensalidade.*\n\nDesconto para nova contratação\n✅ 50% de desconto na 2ª e na 13ª mensalidade\n\nPara darmos andamento ao seu cadastro e verificar as carências certinhas, você prefere enviar a foto dos documentos por aqui mesmo?`;
+
+      response = `${propostaText}\n\n${beneficiosText}`;
+      media = null; // Don't send PDF anymore!
     } else {
       // Se por algum motivo o fluxo quebrou, reinicia na idade
       const clientName = lead.name || 'Cliente';
       response = `Olá, ${clientName}! Tudo bem?\n\nPara eu encontrar a melhor opção de plano da AUSTA para você, me conta: qual é a sua idade?`;
     }
   } else if (stage === 'NEED_PAYOFF') {
-    // Apresenta benefícios e carências Austa
+    // Para compatibilidade com leads já no estágio antigo, apresenta benefícios e vai para MEETING_SCHEDULED
     stage = 'MEETING_SCHEDULED';
     response = `Com certeza! Além desses valores, contratando hoje você garante benefícios exclusivos de redução de carências e descontos. Olha só:\n\nBenefícios Austa contratando hoje:\n\nRedução nas carências:\n* Urgência/Emergência - Liberado para Uso\n* Consultas Simples - Liberado para Uso\n* Exames Simples - Liberado para Uso\n\nIsenção da taxa de adesão:\n* ✅ Isenção da taxa de adesão do plano.\n* ✅ (Não paga nada na contratação)\n* ✅ Sem Consulta no SPC e Serasa\n* ✅ 50% de desconto na 2ª e na 13ª mensalidade.*\n\nDesconto para nova contratação\n✅ 50% de desconto na 2ª e na 13ª mensalidade\n\nPara darmos andamento ao seu cadastro e verificar as carências certinhas, você prefere enviar a foto dos documentos por aqui mesmo?`;
   } else if (stage === 'MEETING_SCHEDULED') {
