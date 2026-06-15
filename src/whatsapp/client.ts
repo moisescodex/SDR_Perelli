@@ -1030,21 +1030,53 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
       let userText = '';
       let isWhaticketMedia = false;
 
-      if (msg.mediaUrl || msg.url) {
-        let mediaUrl = msg.mediaUrl || msg.url;
-        if (mediaUrl && !mediaUrl.startsWith('http')) {
+      let mediaUrl = msg.mediaUrl || msg.url;
+      let mimeType = msg.mediaType || '';
+      let filename = msg.document?.filename || msg.filename || '';
+
+      if (!mediaUrl) {
+        if (msg.image && msg.image.url) {
+          mediaUrl = msg.image.url;
+          mimeType = msg.image.mime_type || 'image/jpeg';
+        } else if (msg.document && msg.document.url) {
+          mediaUrl = msg.document.url;
+          mimeType = msg.document.mime_type || 'application/pdf';
+          filename = msg.document.filename || '';
+        } else if (msg.audio && msg.audio.url) {
+          mediaUrl = msg.audio.url;
+          mimeType = msg.audio.mime_type || 'audio/ogg';
+        } else if (msg.video && msg.video.url) {
+          mediaUrl = msg.video.url;
+          mimeType = msg.video.mime_type || 'video/mp4';
+        }
+      }
+
+      if (mediaUrl) {
+        if (!mediaUrl.startsWith('http')) {
           const whaticketApiUrl = process.env.WHATICKET_API_URL || 'https://api.perellicorretora.com.br';
           const cleanUrl = whaticketApiUrl.replace(/\/$/, '');
           mediaUrl = `${cleanUrl}/${mediaUrl.replace(/^\//, '')}`;
         }
 
-        const mimeType = msg.mediaType || (mediaUrl.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+        if (!mimeType) {
+          mimeType = mediaUrl.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
+        }
+
         const isImageOrPdf = mimeType.startsWith('image/') || mimeType === 'application/pdf';
 
         if (isImageOrPdf) {
           try {
             console.log(`\n📩 [WHATICKET] Baixando mídia de: ${mediaUrl}`);
-            const resMedia = await fetch(mediaUrl);
+            const headers: HeadersInit = {};
+            if (mediaUrl.includes('lookaside.fbsbx.com') || mediaUrl.includes('facebook.com')) {
+              const bmToken = ticket?.whatsapp?.bmToken;
+              if (bmToken) {
+                headers['Authorization'] = `Bearer ${bmToken}`;
+                console.log(`🔑 Usando token WABA para baixar mídia do Facebook.`);
+              }
+            }
+            
+            const resMedia = await fetch(mediaUrl, { headers });
             if (resMedia.ok) {
               const buffer = Buffer.from(await resMedia.arrayBuffer());
               const analysis = await analyzeDocument(buffer, mimeType);
