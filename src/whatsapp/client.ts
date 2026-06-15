@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { env } from '../config/env';
 import { LeadState, Lead, Message } from '../state/LeadState';
-import { generateSdrResponse, transcribeAudio, generateFollowUp, generateThreeHourFollowUp, extractPdfText, analyzeDocument } from '../ai/openai';
+import { generateSdrResponse, transcribeAudio, generateFollowUp, generateThreeHourFollowUp, extractPdfText, analyzeDocument, generateFollowUpCadence } from '../ai/openai';
 import { getDb, isDbConnected } from '../state/db';
 import path from 'path';
 import fs from 'fs';
@@ -177,6 +177,8 @@ whatsappRouter.post('/api/leads/:phone/manual-message', async (req: Request, res
 
     const lead = await LeadState.getLead(phone, activeChannel);
     lead.unread = false;
+    lead.follow_up_level = 0; // Reset follow-up cadence on manual intervention
+    lead.last_follow_up_at = null;
     await LeadState.saveLead(lead);
     await LeadState.addMessage(phone, activeChannel, 'assistant', `[Resposta manual]: ${text}`);
 
@@ -1622,3 +1624,252 @@ export async function generateSpeech(text: string): Promise<Buffer | null> {
     return null;
   }
 }
+
+// GET /webhook-leads - Verificação de Webhook de Leads da Meta
+whatsappRouter.get('/webhook-leads', (req: Request, res: Response) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode && token) {
+    if (mode === 'subscribe' && token === env.META_VERIFY_TOKEN) {
+      console.log('✅ Webhook de Leads Ads verificado pela Meta!');
+      res.status(200).send(challenge);
+    } else {
+      res.sendStatus(403);
+    }
+  } else {
+    res.sendStatus(400);
+  }
+});
+
+// POST /webhook-leads - Recepção de lead da Meta
+whatsappRouter.post('/webhook-leads', async (req: Request, res: Response) => {
+  const body = req.body;
+  console.log('📬 [LEADS WEBHOOK INCOMING] Payload recebido:', JSON.stringify(body, null, 2));
+
+  res.sendStatus(200);
+
+  try {
+    const entry = body.entry?.[0];
+    const changes = entry?.changes?.[0];
+    const value = changes?.value;
+    const leadgenId = value?.leadgen_id;
+
+    if (leadgenId) {
+      console.log(`[LEADS WEBHOOK] Novo lead ID detectado: ${leadgenId}. Buscando dados na Graph API...`);
+      
+      const fbUrl = `https://graph.facebook.com/v20.0/${leadgenId}?access_token=${env.META_ACCESS_TOKEN}`;
+      const fbRes = await fetch(fbUrl);
+      if (!fbRes.ok) {
+        throw new Error(`Erro ao buscar leadgen do Facebook: ${fbRes.statusText}`);
+      }
+      
+      const fbData = await fbRes.json() as any;
+      console.log(`[LEADS WEBHOOK] Dados retornados pelo Facebook:`, JSON.stringify(fbData, null, 2));
+
+      let name = 'Lead';
+      let phone = '';
+      const fieldData = fbData.field_data || [];
+      
+      for (const field of fieldData) {
+        const nameLower = field.name.toLowerCase();
+        const val = field.values?.[0] || '';
+        
+        if (nameLower.includes('phone') || nameLower.includes('telefone') || nameLower.includes('whats') || nameLower.includes('celular')) {
+          phone = val;
+        } else if (nameLower.includes('name') || nameLower.includes('nome') || nameLower.includes('cliente')) {
+          name = val;
+        }
+      }
+
+      const cleanPhone = phone.replace(/\D/g, '');
+      if (cleanPhone && cleanPhone.length >= 8) {
+        console.log(`[LEADS WEBHOOK] Lead mapeado com sucesso: ${name} (${cleanPhone})`);
+        
+        const activeChannel = env.META_PHONE_ID || 'default';
+        await LeadState.importLeads([{
+          phone: cleanPhone,
+          name: name,
+          channel_phone_id: activeChannel,
+          created_at: new Date().toISOString(),
+          history: '[]'
+        }]);
+        
+        processPendingLeads().catch(err => console.error('Erro ao processar lead pendente do webhook:', err));
+      } else {
+        console.warn(`⚠️ [LEADS WEBHOOK] Telefone inválido ou não encontrado nos dados do lead: ${phone}`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ [LEADS WEBHOOK] Erro ao processar webhook de leads da Meta:', error);
+  }
+});
+
+// POST /api/leads/import - Rota para importação em lote de leads via CRM
+whatsappRouter.post('/api/leads/import', async (req: Request, res: Response) => {
+  const { leads, channelPhoneId } = req.body;
+  if (!leads || !Array.isArray(leads)) {
+    return res.status(400).json({ error: 'Lista de leads é obrigatória e deve ser um array.' });
+  }
+
+  const activeChannel = channelPhoneId || 'default';
+  
+  try {
+    const formattedLeads = leads.map(l => ({
+      phone: l.phone.replace(/\D/g, ''),
+      name: l.name || 'Lead',
+      channel_phone_id: activeChannel,
+      created_at: new Date().toISOString(),
+      history: '[]'
+    }));
+
+    await LeadState.importLeads(formattedLeads);
+    
+    // Processa imediatamente os leads pendentes importados
+    processPendingLeads().catch(err => console.error('Erro ao processar leads pós-importação:', err));
+
+    res.json({ success: true, count: formattedLeads.length });
+  } catch (err: any) {
+    console.error('Erro na importação de leads:', err);
+    res.status(500).json({ error: err.message || 'Erro ao importar leads.' });
+  }
+});
+
+// Processa novos leads em lote que estão no status 'pending'
+export async function processPendingLeads() {
+  try {
+    const pendingLeads = await LeadState.getNextPendingLeads(10);
+    if (pendingLeads.length === 0) return;
+
+    console.log(`[PENDING WORKER] Processando ${pendingLeads.length} leads pendentes...`);
+
+    for (const lead of pendingLeads) {
+      try {
+        const activeChannel = lead.channel_phone_id || 'default';
+        
+        // Ativa o lead antes de enviar a mensagem para evitar concorrência
+        lead.status = 'active';
+        lead.stage = 'SITUATION';
+        await LeadState.saveLead(lead);
+
+        const firstName = lead.name ? lead.name.split(' ')[0] : 'Lead';
+        const activeTemplate = 'boas_vindas_perelli';
+        
+        console.log(`[PENDING WORKER] Enviando template de boas-vindas para ${lead.phone}...`);
+        await sendTemplateMessage(activeChannel, lead.phone, activeTemplate, [firstName]);
+        
+        const initialMessage = `Olá ${firstName}! Sou o Perelli, consultor virtual da Perelli Corretora. Tudo bem?\n\nMe conta: você quer cotar um plano de saúde individual, familiar ou seria empresarial/CNPJ?`;
+        await LeadState.addMessage(lead.phone, activeChannel, 'assistant', initialMessage);
+        
+        // Aguarda 2 segundos entre mensagens para evitar bloqueio na API
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } catch (leadErr) {
+        console.error(`❌ Erro ao processar lead pendente ${lead.phone}:`, leadErr);
+      }
+    }
+  } catch (err) {
+    console.error('Erro na rotina processPendingLeads:', err);
+  }
+}
+
+// Verifica e dispara cadência de follow-ups (24h, 3d, 7d)
+export async function checkAndTriggerFollowUps() {
+  try {
+    const leads = await LeadState.getAllLeads();
+    const now = new Date();
+    
+    // Filtra leads ativos elegíveis para follow-up
+    const activeLeads = leads.filter(l => 
+      l.status === 'active' && 
+      l.stage !== 'CONVERTED' && 
+      l.stage !== 'LOST' && 
+      !l.requires_intervention
+    );
+
+    for (const lead of activeLeads) {
+      const lastMsg = lead.history[lead.history.length - 1];
+      // Apenas se a última mensagem foi do bot/assistente (esperando usuário)
+      if (!lastMsg || lastMsg.role !== 'assistant') {
+        continue;
+      }
+
+      const updatedTime = lead.updated_at ? new Date(lead.updated_at) : new Date(lead.created_at || Date.now());
+      const diffMs = now.getTime() - updatedTime.getTime();
+      
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+      const activeChannel = lead.channel_phone_id || 'default';
+      const followUpLevel = lead.follow_up_level || 0;
+
+      try {
+        // Nível 3 (7 dias sem resposta) -> Mensagem final e move para LOST
+        if (diffMs >= sevenDaysMs && followUpLevel < 3) {
+          console.log(`[CRON FOLLOW-UP 7D] Enviando follow-up 3 para ${lead.phone}...`);
+          const text = await generateFollowUpCadence(lead, 3);
+          
+          await LeadState.addMessage(lead.phone, activeChannel, 'assistant', text);
+          await sendMessage(activeChannel, lead.phone, text);
+          
+          lead.follow_up_level = 3;
+          lead.last_follow_up_at = now.toISOString();
+          lead.stage = 'LOST';
+          await LeadState.saveLead(lead);
+        }
+        // Nível 2 (3 dias sem resposta)
+        else if (diffMs >= threeDaysMs && followUpLevel < 2) {
+          console.log(`[CRON FOLLOW-UP 3D] Enviando follow-up 2 para ${lead.phone}...`);
+          const text = await generateFollowUpCadence(lead, 2);
+          
+          await LeadState.addMessage(lead.phone, activeChannel, 'assistant', text);
+          await sendMessage(activeChannel, lead.phone, text);
+          
+          lead.follow_up_level = 2;
+          lead.last_follow_up_at = now.toISOString();
+          await LeadState.saveLead(lead);
+        }
+        // Nível 1 (24 horas sem resposta)
+        else if (diffMs >= oneDayMs && followUpLevel < 1) {
+          console.log(`[CRON FOLLOW-UP 24H] Enviando follow-up 1 para ${lead.phone}...`);
+          const text = await generateFollowUpCadence(lead, 1);
+          
+          await LeadState.addMessage(lead.phone, activeChannel, 'assistant', text);
+          await sendMessage(activeChannel, lead.phone, text);
+          
+          lead.follow_up_level = 1;
+          lead.last_follow_up_at = now.toISOString();
+          await LeadState.saveLead(lead);
+        }
+      } catch (err) {
+        console.error(`Erro ao disparar follow-up no lead ${lead.phone}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error('Erro na varredura checkAndTriggerFollowUps:', err);
+  }
+}
+
+// Configura agendadores em background pós-inicialização
+setTimeout(async () => {
+  console.log('⏰ [BOOT WORKER] Executando varreduras iniciais...');
+  try {
+    await checkAndTriggerFollowUps();
+    await processPendingLeads();
+  } catch (err) {
+    console.error('Erro no boot worker:', err);
+  }
+}, 10000); // 10 segundos
+
+// Executa verificação de background a cada 15 minutos
+setInterval(async () => {
+  console.log('⏰ [CRON WORKER] Executando rotinas de background...');
+  try {
+    await checkAndTriggerFollowUps();
+    await processPendingLeads();
+  } catch (err) {
+    console.error('Erro no cron worker:', err);
+  }
+}, 15 * 60 * 1000); // 15 minutos
+

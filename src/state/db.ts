@@ -117,6 +117,12 @@ async function initDb(pool: Pool) {
   await pool.query(`
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS document_status TEXT;
   `);
+  await pool.query(`
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS follow_up_level INT DEFAULT 0;
+  `);
+  await pool.query(`
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS last_follow_up_at TIMESTAMP DEFAULT NULL;
+  `);
 
   // Tabela de configurações
   await pool.query(`

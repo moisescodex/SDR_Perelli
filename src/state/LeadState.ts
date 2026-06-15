@@ -23,6 +23,8 @@ export interface Lead {
   preferred_hospitals?: string | null;
   requires_intervention?: boolean;
   document_status?: string | null;
+  follow_up_level?: number;
+  last_follow_up_at?: string | null;
   created_at?: string;
   updated_at?: string;
   history: Message[];
@@ -54,6 +56,8 @@ export class LeadState {
           preferred_hospitals: null,
           requires_intervention: false,
           document_status: null,
+          follow_up_level: 0,
+          last_follow_up_at: null,
           history: [],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -80,6 +84,8 @@ export class LeadState {
         preferred_hospitals: row.preferred_hospitals,
         requires_intervention: row.requires_intervention || false,
         document_status: row.document_status,
+        follow_up_level: row.follow_up_level || 0,
+        last_follow_up_at: row.last_follow_up_at ? new Date(row.last_follow_up_at).toISOString() : null,
         created_at: row.created_at ? new Date(row.created_at).toISOString() : undefined,
         updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : undefined,
         history: JSON.parse(row.history || '[]')
@@ -100,6 +106,8 @@ export class LeadState {
       preferred_hospitals: null,
       requires_intervention: false,
       document_status: null,
+      follow_up_level: 0,
+      last_follow_up_at: null,
       history: [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -119,8 +127,8 @@ export class LeadState {
     }
 
     await db.query(
-      `INSERT INTO leads (phone, channel_phone_id, name, stage, status, history, unread, has_cnpj, current_plan, num_lives, preferred_hospitals, requires_intervention, document_status, updated_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
+      `INSERT INTO leads (phone, channel_phone_id, name, stage, status, history, unread, has_cnpj, current_plan, num_lives, preferred_hospitals, requires_intervention, document_status, follow_up_level, last_follow_up_at, updated_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP)
        ON CONFLICT(phone, channel_phone_id) DO UPDATE SET 
        name=excluded.name, 
        stage=excluded.stage, 
@@ -133,6 +141,8 @@ export class LeadState {
        preferred_hospitals=excluded.preferred_hospitals,
        requires_intervention=excluded.requires_intervention,
        document_status=excluded.document_status,
+       follow_up_level=excluded.follow_up_level,
+       last_follow_up_at=excluded.last_follow_up_at,
        updated_at=CURRENT_TIMESTAMP`,
       [
         lead.phone,
@@ -147,7 +157,9 @@ export class LeadState {
         lead.num_lives || null,
         lead.preferred_hospitals || null,
         lead.requires_intervention || false,
-        lead.document_status || null
+        lead.document_status || null,
+        lead.follow_up_level || 0,
+        lead.last_follow_up_at || null
       ]
     );
   }
@@ -157,6 +169,8 @@ export class LeadState {
     lead.history.push({ role, content, media: media || null });
     if (role === 'user') {
       lead.unread = true;
+      lead.follow_up_level = 0; // Reset follow-up cadence on response
+      lead.last_follow_up_at = null;
     }
     await this.saveLead(lead);
   }
@@ -365,12 +379,13 @@ export class LeadState {
 
       await db.query(
         `INSERT INTO leads (phone, channel_phone_id, name, stage, status, history, created_at, updated_at)
-         VALUES ($1, $2, 'SITUATION', 'pending', $3, $4, CURRENT_TIMESTAMP)
+         VALUES ($1, $2, $3, 'SITUATION', 'pending', $4, $5, CURRENT_TIMESTAMP)
          ON CONFLICT(phone, channel_phone_id) DO UPDATE SET 
            name = EXCLUDED.name,
            history = CASE WHEN leads.history IS NULL OR leads.history = '[]' THEN EXCLUDED.history ELSE leads.history END,
-           created_at = EXCLUDED.created_at`,
-        [cleanPhone, channelId, historyStr, createdAt]
+           created_at = EXCLUDED.created_at,
+           status = CASE WHEN leads.status = 'active' THEN 'active' ELSE 'pending' END`,
+        [cleanPhone, channelId, lead.name, historyStr, createdAt]
       );
     }
   }

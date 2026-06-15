@@ -6,6 +6,7 @@ let activeLead = null;
 let refreshInterval = null;
 let channelsList = [];
 let selectedFileToUpload = null;
+let parsedLeads = [];
 
 // Admin Credentials
 const CREDENTIALS = {
@@ -38,6 +39,19 @@ const chatLeadHospitals = document.getElementById('chat-lead-hospitals');
 const chatHistoryContainer = document.getElementById('chat-history-container');
 const manualMessageInput = document.getElementById('manual-message-input');
 const btnSendManual = document.getElementById('btn-send-manual');
+
+// Import Leads Elements
+const btnImportLeads = document.getElementById('btn-import-leads');
+const importLeadsModal = document.getElementById('import-leads-modal');
+const btnCloseImportModal = document.getElementById('btn-close-import-modal');
+const importChannelSelect = document.getElementById('import-channel-select');
+const csvDropzone = document.getElementById('csv-dropzone');
+const csvFileInput = document.getElementById('csv-file-input');
+const csvNamePreview = document.getElementById('csv-name-preview');
+const csvPreviewContainer = document.getElementById('csv-preview-container');
+const csvPreviewBody = document.getElementById('csv-preview-body');
+const btnCancelImport = document.getElementById('btn-cancel-import');
+const btnSubmitImport = document.getElementById('btn-submit-import');
 
 // Channel Selector in Header
 const channelFilter = document.getElementById('channel-filter');
@@ -308,6 +322,52 @@ function setupEventListeners() {
       updateActiveMobileColumn(targetStage);
     });
   });
+
+  // CSV Import Modal listeners
+  if (btnImportLeads) {
+    btnImportLeads.addEventListener('click', openImportModal);
+  }
+
+  if (btnCloseImportModal) {
+    btnCloseImportModal.addEventListener('click', closeImportModal);
+  }
+
+  if (btnCancelImport) {
+    btnCancelImport.addEventListener('click', closeImportModal);
+  }
+
+  if (csvDropzone) {
+    csvDropzone.addEventListener('click', () => {
+      csvFileInput.click();
+    });
+
+    csvFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleSelectedCSVFile(e.target.files[0]);
+      }
+    });
+
+    csvDropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      csvDropzone.classList.add('dragover');
+    });
+
+    csvDropzone.addEventListener('dragleave', () => {
+      csvDropzone.classList.remove('dragover');
+    });
+
+    csvDropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      csvDropzone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleSelectedCSVFile(e.dataTransfer.files[0]);
+      }
+    });
+  }
+
+  if (btnSubmitImport) {
+    btnSubmitImport.addEventListener('click', handleSubmitImport);
+  }
 }
 
 /**
@@ -830,4 +890,212 @@ function scrollToBottom() {
   setTimeout(() => {
     chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
   }, 50);
+}
+
+function openImportModal() {
+  if (importLeadsModal) {
+    importLeadsModal.classList.remove('hidden');
+  }
+  
+  // Populate channels list
+  if (importChannelSelect) {
+    importChannelSelect.innerHTML = '';
+    if (channelsList.length === 0) {
+      importChannelSelect.innerHTML = '<option value="">Nenhum canal ativo</option>';
+    } else {
+      channelsList.forEach(c => {
+        importChannelSelect.innerHTML += `<option value="${c.phone_number_id}">${escapeHTML(c.name)} (${escapeHTML(c.display_phone_number)})</option>`;
+      });
+    }
+  }
+
+  // Reset modal state
+  parsedLeads = [];
+  if (csvNamePreview) csvNamePreview.innerText = 'Nenhum arquivo selecionado';
+  if (csvFileInput) csvFileInput.value = '';
+  if (csvPreviewContainer) csvPreviewContainer.classList.add('hidden');
+  if (csvPreviewBody) csvPreviewBody.innerHTML = '';
+  if (btnSubmitImport) {
+    btnSubmitImport.disabled = true;
+    btnSubmitImport.innerText = 'Iniciar Importação';
+  }
+}
+
+function closeImportModal() {
+  if (importLeadsModal) {
+    importLeadsModal.classList.add('hidden');
+  }
+}
+
+function handleSelectedCSVFile(file) {
+  if (!file) return;
+
+  if (csvNamePreview) {
+    csvNamePreview.innerText = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    parsedLeads = parseCSV(text);
+
+    if (parsedLeads.length > 0) {
+      if (btnSubmitImport) btnSubmitImport.disabled = false;
+
+      // Show preview
+      if (csvPreviewContainer) csvPreviewContainer.classList.remove('hidden');
+      if (csvPreviewBody) {
+        csvPreviewBody.innerHTML = '';
+        const previewItems = parsedLeads.slice(0, 5);
+        previewItems.forEach(lead => {
+          csvPreviewBody.innerHTML += `
+            <tr>
+              <td style="padding: 0.5rem; border-bottom: 1px solid var(--card-border);">${escapeHTML(lead.name)}</td>
+              <td style="padding: 0.5rem; border-bottom: 1px solid var(--card-border);">${escapeHTML(lead.phone)}</td>
+            </tr>
+          `;
+        });
+        if (parsedLeads.length > 5) {
+          csvPreviewBody.innerHTML += `
+            <tr>
+              <td colspan="2" style="padding: 0.5rem; text-align: center; color: var(--text-secondary); font-style: italic;">
+                E mais ${parsedLeads.length - 5} leads...
+              </td>
+            </tr>
+          `;
+        }
+      }
+    } else {
+      alert('Nenhum lead válido encontrado no arquivo CSV. Verifique se o arquivo contém as colunas de nome e telefone.');
+      if (btnSubmitImport) btnSubmitImport.disabled = true;
+      if (csvPreviewContainer) csvPreviewContainer.classList.add('hidden');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+async function handleSubmitImport() {
+  if (parsedLeads.length === 0) return;
+
+  const channelPhoneId = importChannelSelect ? importChannelSelect.value : '';
+  if (btnSubmitImport) {
+    btnSubmitImport.disabled = true;
+    btnSubmitImport.innerText = 'Importando...';
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/api/leads/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        leads: parsedLeads,
+        channelPhoneId: channelPhoneId
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      alert(`Importação concluída com sucesso! ${data.count} leads importados.`);
+      closeImportModal();
+      await fetchLeads(); // refresh Kanban
+    } else {
+      const err = await res.json();
+      alert(`Erro ao importar leads: ${err.error || 'Erro desconhecido'}`);
+    }
+  } catch (err) {
+    console.error('Error importing leads:', err);
+    alert('Erro ao conectar com o servidor.');
+  } finally {
+    if (btnSubmitImport) {
+      btnSubmitImport.disabled = false;
+      btnSubmitImport.innerText = 'Iniciar Importação';
+    }
+  }
+}
+
+function parseCSV(text) {
+  // Split by line break
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
+  if (lines.length === 0) return [];
+
+  // Detect delimiter
+  const firstLine = lines[0];
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const semicolonCount = (firstLine.match(/;/g) || []).length;
+  const delimiter = semicolonCount >= commaCount ? ';' : ',';
+
+  // Helper to split row correctly, handling potential quotes
+  const splitRow = (row) => {
+    return row.split(delimiter).map(cell => {
+      let cleaned = cell.trim();
+      if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+        cleaned = cleaned.substring(1, cleaned.length - 1);
+      }
+      return cleaned;
+    });
+  };
+
+  const headers = splitRow(lines[0]);
+  let nameIndex = -1;
+  let phoneIndex = -1;
+
+  // Check if first line contains headers
+  const isHeader = headers.some(h => {
+    const hl = h.toLowerCase();
+    return hl.includes('nome') || hl.includes('name') || hl.includes('cliente') ||
+           hl.includes('telefone') || hl.includes('phone') || hl.includes('tel') || hl.includes('whats') || hl.includes('celular');
+  });
+
+  let dataLines = lines;
+  if (isHeader) {
+    // Map headers
+    headers.forEach((h, idx) => {
+      const hl = h.toLowerCase();
+      if (hl.includes('nome') || hl.includes('name') || hl.includes('cliente')) {
+        if (nameIndex === -1) nameIndex = idx;
+      } else if (hl.includes('telefone') || hl.includes('phone') || hl.includes('tel') || hl.includes('whats') || hl.includes('celular')) {
+        if (phoneIndex === -1) phoneIndex = idx;
+      }
+    });
+    dataLines = lines.slice(1);
+  }
+
+  // If name or phone index not found, fallback to defaults
+  if (nameIndex === -1 || phoneIndex === -1) {
+    if (dataLines.length > 0) {
+      const firstData = splitRow(dataLines[0]);
+      if (firstData.length >= 2) {
+        const digits0 = (firstData[0] || '').replace(/\D/g, '').length;
+        const digits1 = (firstData[1] || '').replace(/\D/g, '').length;
+        if (digits1 > digits0) {
+          nameIndex = 0;
+          phoneIndex = 1;
+        } else {
+          nameIndex = 1;
+          phoneIndex = 0;
+        }
+      } else {
+        nameIndex = 0;
+        phoneIndex = 0;
+      }
+    } else {
+      nameIndex = 0;
+      phoneIndex = 1;
+    }
+  }
+
+  const results = [];
+  dataLines.forEach(line => {
+    const cols = splitRow(line);
+    if (cols.length > 0) {
+      const name = cols[nameIndex] || 'Lead';
+      const phone = cols[phoneIndex] || '';
+      const cleanPhone = phone.replace(/\D/g, '');
+      if (cleanPhone.length >= 8) {
+        results.push({ name, phone: cleanPhone });
+      }
+    }
+  });
+
+  return results;
 }
