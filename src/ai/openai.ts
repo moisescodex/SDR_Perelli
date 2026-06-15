@@ -778,3 +778,70 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
     media
   };
 }
+
+export async function generateAnalyticsInsights(leadsData: string): Promise<any> {
+  if (!genAI) {
+    return {
+      success_factors: ["Interação rápida do SDR com propostas personalizadas", "Envio ágil de comprovante de residência e RG/CNH"],
+      dropoff_factors: ["Dúvidas não resolvidas sobre coparticipação", "Demora de resposta do lead após solicitar documentos"],
+      main_objections: [
+        { objection: "Dúvida sobre taxa de coparticipação", frequency: "Alta", handling_efficacy: "Boa" },
+        { objection: "Exigência de CNH ou RG fora do plástico", frequency: "Média", handling_efficacy: "Média" }
+      ],
+      best_incentives: ["Proposta com cotação CNPJ/MEI mais barata", "Destaque da rede de hospitais credenciados"],
+      actionable_recommendations: ["Adicionar um áudio explicativo sobre carências de doenças preexistentes", "Simplificar a solicitação inicial de documentos para o cliente"]
+    };
+  }
+
+  try {
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: "application/json"
+      }
+    });
+
+    const prompt = `Você é o Diretor de Analytics e IA da Perelli Corretora de Seguros de Saúde.
+Analise os seguintes históricos de conversas reais de leads que interagiram com o robô SDR automático (Perelli) e foram convertidos (CONVERTED) ou perdidos (LOST).
+
+CONVERSAS DOS LEADS:
+${leadsData}
+
+Seu objetivo é identificar de forma crítica e contínua o comportamento das pessoas.
+Identifique:
+1. Fatores de Avanço (O que faz as pessoas avançarem na conversa?)
+2. Fatores de Abandono (O que faz as pessoas pararem ou silenciarem?)
+3. Principais Objeções e Dúvidas (quais são, com que frequência ocorrem e quão bem o robô lidou com elas)
+4. Melhores Incentivos (gatilhos de urgência, rede credenciada, preços via MEI/CNPJ, etc.)
+5. Recomendações Práticas (o que o time de marketing ou tecnologia deve ajustar nos prompts ou canais de venda)
+
+Retorne obrigatoriamente um JSON estruturado com o seguinte formato:
+{
+  "success_factors": ["fator 1", "fator 2"],
+  "dropoff_factors": ["fator 1", "fator 2"],
+  "main_objections": [
+    {
+      "objection": "descrição curta da objeção",
+      "frequency": "Alta" | "Média" | "Baixa",
+      "handling_efficacy": "Boa" | "Média" | "Ruim"
+    }
+  ],
+  "best_incentives": ["incentivo 1", "incentivo 2"],
+  "actionable_recommendations": ["recomendação 1", "recomendação 2"]
+}`;
+
+    const result = await model.generateContent({ contents: [{ role: 'user', parts: [{ text: prompt }] }] });
+    const content = result.response.text().trim();
+    
+    let jsonString = content;
+    if (jsonString.startsWith('```')) {
+      jsonString = jsonString.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+    }
+
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.error('Erro ao gerar insights de analytics com Gemini:', error);
+    throw error;
+  }
+}

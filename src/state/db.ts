@@ -123,12 +123,24 @@ async function initDb(pool: Pool) {
   await pool.query(`
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS last_follow_up_at TIMESTAMP DEFAULT NULL;
   `);
+  await pool.query(`
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS source VARCHAR(50) DEFAULT 'crm';
+  `);
 
   // Tabela de configurações
   await pool.query(`
     CREATE TABLE IF NOT EXISTS configs (
       key TEXT PRIMARY KEY,
       value TEXT
+    );
+  `);
+
+  // Tabela de aprendizados de IA
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sdr_learnings (
+      id SERIAL PRIMARY KEY,
+      insights JSONB NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
 

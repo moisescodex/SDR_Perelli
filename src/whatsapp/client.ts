@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { env } from '../config/env';
 import { LeadState, Lead, Message } from '../state/LeadState';
-import { generateSdrResponse, transcribeAudio, generateFollowUp, generateThreeHourFollowUp, extractPdfText, analyzeDocument, generateFollowUpCadence } from '../ai/openai';
+import { generateSdrResponse, transcribeAudio, generateFollowUp, generateThreeHourFollowUp, extractPdfText, analyzeDocument, generateFollowUpCadence, generateAnalyticsInsights } from '../ai/openai';
 import { getDb, isDbConnected } from '../state/db';
 import path from 'path';
 import fs from 'fs';
@@ -48,8 +48,9 @@ whatsappRouter.post('/api/verify', (req: Request, res: Response) => {
 // Lista todos os leads no CRM
 whatsappRouter.get('/api/leads', async (req: Request, res: Response) => {
   const channelPhoneId = req.query.channelPhoneId as string;
+  const source = req.query.source as string;
   try {
-    const leads = await LeadState.getAllLeads(channelPhoneId);
+    const leads = await LeadState.getAllLeads(channelPhoneId, source);
     res.json(leads);
   } catch (error) {
     console.error('Erro ao buscar leads:', error);
@@ -1693,7 +1694,8 @@ whatsappRouter.post('/webhook-leads', async (req: Request, res: Response) => {
           name: name,
           channel_phone_id: activeChannel,
           created_at: new Date().toISOString(),
-          history: '[]'
+          history: '[]',
+          source: 'meta'
         }]);
         
         processPendingLeads().catch(err => console.error('Erro ao processar lead pendente do webhook:', err));
@@ -1721,7 +1723,8 @@ whatsappRouter.post('/api/leads/import', async (req: Request, res: Response) => 
       name: l.name || 'Lead',
       channel_phone_id: activeChannel,
       created_at: new Date().toISOString(),
-      history: '[]'
+      history: '[]',
+      source: 'csv'
     }));
 
     await LeadState.importLeads(formattedLeads);
@@ -1872,4 +1875,119 @@ setInterval(async () => {
     console.error('Erro no cron worker:', err);
   }
 }, 15 * 60 * 1000); // 15 minutos
+
+// Endpoints de Analytics e IA Inteligência Contínua
+whatsappRouter.get('/api/analytics/metrics', async (req: Request, res: Response) => {
+  try {
+    const leads = await LeadState.getAllLeads();
+    const totalLeads = leads.length;
+
+    const respondedLeads = leads.filter(l => l.history.some(m => m.role === 'user')).length;
+    const proposalsLeads = leads.filter(l => ['NEED_PAYOFF', 'MEETING_SCHEDULED', 'CONVERTED'].includes(l.stage)).length;
+    const convertedLeads = leads.filter(l => l.stage === 'CONVERTED').length;
+    const lostLeads = leads.filter(l => l.stage === 'LOST').length;
+
+    const responseRate = totalLeads > 0 ? (respondedLeads / totalLeads) * 100 : 0;
+    const proposalRate = totalLeads > 0 ? (proposalsLeads / totalLeads) * 100 : 0;
+    const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
+
+    const hourlyDistribution = Array(24).fill(0);
+    leads.forEach(l => {
+      if (l.created_at) {
+        const hour = new Date(l.created_at).getHours();
+        if (hour >= 0 && hour < 24) {
+          hourlyDistribution[hour]++;
+        }
+      }
+    });
+
+    let totalResponseTimeMs = 0;
+    let responseCount = 0;
+
+    leads.forEach(l => {
+      const history = l.history;
+      for (let i = 1; i < history.length; i++) {
+        const prev = history[i - 1];
+        const curr = history[i];
+        
+        if (prev.role === 'assistant' && curr.role === 'user' && prev.timestamp && curr.timestamp) {
+          const prevTime = new Date(prev.timestamp).getTime();
+          const currTime = new Date(curr.timestamp).getTime();
+          const diff = currTime - prevTime;
+          if (diff > 0 && diff < 24 * 60 * 60 * 1000) {
+            totalResponseTimeMs += diff;
+            responseCount++;
+          }
+        }
+      }
+    });
+
+    const avgResponseTimeSec = responseCount > 0 ? Math.round((totalResponseTimeMs / responseCount) / 1000) : 0;
+
+    res.json({
+      totalLeads,
+      respondedLeads,
+      proposalsLeads,
+      convertedLeads,
+      lostLeads,
+      responseRate: parseFloat(responseRate.toFixed(1)),
+      proposalRate: parseFloat(proposalRate.toFixed(1)),
+      conversionRate: parseFloat(conversionRate.toFixed(1)),
+      avgResponseTimeSec,
+      hourlyDistribution
+    });
+  } catch (error: any) {
+    console.error('Erro ao calcular métricas de analytics:', error);
+    res.status(500).json({ error: error.message || 'Erro ao carregar métricas' });
+  }
+});
+
+whatsappRouter.get('/api/analytics/learnings', async (req: Request, res: Response) => {
+  try {
+    const learning = await LeadState.getLatestLearning();
+    res.json(learning);
+  } catch (error: any) {
+    console.error('Erro ao buscar aprendizados:', error);
+    res.status(500).json({ error: error.message || 'Erro ao carregar aprendizados' });
+  }
+});
+
+whatsappRouter.post('/api/analytics/analyze', async (req: Request, res: Response) => {
+  try {
+    const leads = await LeadState.getAllLeads();
+    const activeLeads = leads.filter(l => l.history.length > 0);
+    
+    if (activeLeads.length === 0) {
+      return res.status(400).json({ error: 'Nenhum lead com histórico de mensagens disponível para análise.' });
+    }
+
+    const converted = activeLeads.filter(l => l.stage === 'CONVERTED').slice(0, 10);
+    const lost = activeLeads.filter(l => l.stage === 'LOST').slice(0, 10);
+    const others = activeLeads.filter(l => l.stage !== 'CONVERTED' && l.stage !== 'LOST').slice(0, 5);
+
+    const selectedLeads = [...converted, ...lost, ...others];
+
+    let leadsDataText = '';
+    selectedLeads.forEach((l, index) => {
+      leadsDataText += `\n--- LEAD #${index + 1}: ${l.name || 'Sem Nome'} (${l.phone}) ---\n`;
+      leadsDataText += `Estágio Atual: ${l.stage}\n`;
+      leadsDataText += `Tem CNPJ: ${l.has_cnpj || 'Não definido'}\n`;
+      leadsDataText += `Plano Escolhido: ${l.current_plan || 'Nenhum'}\n`;
+      leadsDataText += `Histórico de Conversa:\n`;
+      l.history.forEach(m => {
+        leadsDataText += `[${m.role === 'user' ? 'CLIENTE' : 'SDR PERELLI'}]: ${m.content}\n`;
+      });
+    });
+
+    console.log(`[ANALYTICS IA] Analisando ${selectedLeads.length} leads com o Gemini...`);
+    const insights = await generateAnalyticsInsights(leadsDataText);
+    
+    await LeadState.saveLearning(insights);
+
+    res.json({ success: true, insights });
+  } catch (error: any) {
+    console.error('Erro ao processar análise contínua de IA:', error);
+    res.status(500).json({ error: error.message || 'Erro ao processar análise da IA' });
+  }
+});
 

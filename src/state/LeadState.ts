@@ -8,6 +8,7 @@ export interface Message {
     url: string;
     filename?: string;
   } | null;
+  timestamp?: string;
 }
 
 export interface Lead {
@@ -25,12 +26,14 @@ export interface Lead {
   document_status?: string | null;
   follow_up_level?: number;
   last_follow_up_at?: string | null;
+  source?: string | null;
   created_at?: string;
   updated_at?: string;
   history: Message[];
 }
 
 const inMemoryLeads = new Map<string, Lead>();
+const inMemoryLearnings: { insights: any; created_at: string }[] = [];
 
 export class LeadState {
   static getInMemoryKey(phone: string, channelPhoneId: string): string {
@@ -58,6 +61,7 @@ export class LeadState {
           document_status: null,
           follow_up_level: 0,
           last_follow_up_at: null,
+          source: 'crm',
           history: [],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -86,6 +90,7 @@ export class LeadState {
         document_status: row.document_status,
         follow_up_level: row.follow_up_level || 0,
         last_follow_up_at: row.last_follow_up_at ? new Date(row.last_follow_up_at).toISOString() : null,
+        source: row.source || 'crm',
         created_at: row.created_at ? new Date(row.created_at).toISOString() : undefined,
         updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : undefined,
         history: JSON.parse(row.history || '[]')
@@ -108,6 +113,7 @@ export class LeadState {
       document_status: null,
       follow_up_level: 0,
       last_follow_up_at: null,
+      source: 'crm',
       history: [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -127,8 +133,8 @@ export class LeadState {
     }
 
     await db.query(
-      `INSERT INTO leads (phone, channel_phone_id, name, stage, status, history, unread, has_cnpj, current_plan, num_lives, preferred_hospitals, requires_intervention, document_status, follow_up_level, last_follow_up_at, updated_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP)
+      `INSERT INTO leads (phone, channel_phone_id, name, stage, status, history, unread, has_cnpj, current_plan, num_lives, preferred_hospitals, requires_intervention, document_status, follow_up_level, last_follow_up_at, source, updated_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, CURRENT_TIMESTAMP)
        ON CONFLICT(phone, channel_phone_id) DO UPDATE SET 
        name=excluded.name, 
        stage=excluded.stage, 
@@ -143,6 +149,7 @@ export class LeadState {
        document_status=excluded.document_status,
        follow_up_level=excluded.follow_up_level,
        last_follow_up_at=excluded.last_follow_up_at,
+       source=excluded.source,
        updated_at=CURRENT_TIMESTAMP`,
       [
         lead.phone,
@@ -159,14 +166,15 @@ export class LeadState {
         lead.requires_intervention || false,
         lead.document_status || null,
         lead.follow_up_level || 0,
-        lead.last_follow_up_at || null
+        lead.last_follow_up_at || null,
+        lead.source || 'crm'
       ]
     );
   }
 
   static async addMessage(phone: string, channelPhoneId: string, role: 'user' | 'assistant', content: string, media?: Message['media']): Promise<void> {
     const lead = await this.getLead(phone, channelPhoneId);
-    lead.history.push({ role, content, media: media || null });
+    lead.history.push({ role, content, media: media || null, timestamp: new Date().toISOString() });
     if (role === 'user') {
       lead.unread = true;
       lead.follow_up_level = 0; // Reset follow-up cadence on response
@@ -181,12 +189,15 @@ export class LeadState {
     await this.saveLead(lead);
   }
 
-  static async getAllLeads(channelPhoneId?: string): Promise<Lead[]> {
+  static async getAllLeads(channelPhoneId?: string, source?: string): Promise<Lead[]> {
     const db = await getDb();
     if (!isDbConnected || !db) {
       let list = Array.from(inMemoryLeads.values());
       if (channelPhoneId) {
         list = list.filter(l => l.channel_phone_id === channelPhoneId);
+      }
+      if (source) {
+        list = list.filter(l => l.source === source);
       }
       return list.sort((a, b) => {
         const tA = a.updated_at ? new Date(a.updated_at).getTime() : 0;
@@ -197,10 +208,22 @@ export class LeadState {
 
     let query = 'SELECT * FROM leads';
     const params: any[] = [];
+    const conditions: string[] = [];
+
     if (channelPhoneId) {
-      query += ' WHERE channel_phone_id = $1';
       params.push(channelPhoneId);
+      conditions.push(`channel_phone_id = $${params.length}`);
     }
+
+    if (source) {
+      params.push(source);
+      conditions.push(`source = $${params.length}`);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
     query += ' ORDER BY updated_at DESC';
 
     const res = await db.query(query, params);
@@ -217,6 +240,9 @@ export class LeadState {
       preferred_hospitals: row.preferred_hospitals,
       requires_intervention: row.requires_intervention || false,
       document_status: row.document_status,
+      follow_up_level: row.follow_up_level || 0,
+      last_follow_up_at: row.last_follow_up_at ? new Date(row.last_follow_up_at).toISOString() : null,
+      source: row.source || 'crm',
       created_at: row.created_at ? new Date(row.created_at).toISOString() : undefined,
       updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : undefined,
       history: JSON.parse(row.history || '[]')
@@ -330,7 +356,7 @@ export class LeadState {
     }));
   }
 
-  static async importLeads(leads: { phone: string, name: string, channel_phone_id?: string, created_at?: string, history?: string }[]): Promise<void> {
+  static async importLeads(leads: { phone: string, name: string, channel_phone_id?: string, created_at?: string, history?: string, source?: string }[]): Promise<void> {
     const db = await getDb();
     if (!isDbConnected || !db) {
       for (const lead of leads) {
@@ -352,6 +378,7 @@ export class LeadState {
             current_plan: null,
             num_lives: null,
             preferred_hospitals: null,
+            source: lead.source || 'crm',
             history: JSON.parse(lead.history || '[]'),
             created_at: lead.created_at || new Date().toISOString(),
             updated_at: new Date().toISOString()
@@ -359,6 +386,7 @@ export class LeadState {
           inMemoryLeads.set(key, existing);
         } else {
           existing.name = lead.name;
+          existing.source = lead.source || existing.source || 'crm';
           if (!existing.history || existing.history.length === 0) {
             existing.history = JSON.parse(lead.history || '[]');
           }
@@ -378,14 +406,15 @@ export class LeadState {
       const createdAt = lead.created_at ? new Date(lead.created_at) : new Date();
 
       await db.query(
-        `INSERT INTO leads (phone, channel_phone_id, name, stage, status, history, created_at, updated_at)
-         VALUES ($1, $2, $3, 'SITUATION', 'pending', $4, $5, CURRENT_TIMESTAMP)
+        `INSERT INTO leads (phone, channel_phone_id, name, stage, status, history, created_at, source, updated_at)
+         VALUES ($1, $2, $3, 'SITUATION', 'pending', $4, $5, $6, CURRENT_TIMESTAMP)
          ON CONFLICT(phone, channel_phone_id) DO UPDATE SET 
            name = EXCLUDED.name,
            history = CASE WHEN leads.history IS NULL OR leads.history = '[]' THEN EXCLUDED.history ELSE leads.history END,
            created_at = EXCLUDED.created_at,
+           source = EXCLUDED.source,
            status = CASE WHEN leads.status = 'active' THEN 'active' ELSE 'pending' END`,
-        [cleanPhone, channelId, lead.name, historyStr, createdAt]
+        [cleanPhone, channelId, lead.name, historyStr, createdAt, lead.source || 'crm']
       );
     }
   }
@@ -429,5 +458,30 @@ export class LeadState {
       updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : undefined,
       history: JSON.parse(row.history || '[]')
     }));
+  }
+
+  static async saveLearning(insights: any): Promise<void> {
+    const db = await getDb();
+    if (!isDbConnected || !db) {
+      inMemoryLearnings.push({
+        insights,
+        created_at: new Date().toISOString()
+      });
+      return;
+    }
+    await db.query(
+      `INSERT INTO sdr_learnings (insights, created_at) VALUES ($1, CURRENT_TIMESTAMP)`,
+      [JSON.stringify(insights)]
+    );
+  }
+
+  static async getLatestLearning(): Promise<{ insights: any; created_at: string } | null> {
+    const db = await getDb();
+    if (!isDbConnected || !db) {
+      if (inMemoryLearnings.length === 0) return null;
+      return inMemoryLearnings[inMemoryLearnings.length - 1];
+    }
+    const res = await db.query('SELECT * FROM sdr_learnings ORDER BY created_at DESC LIMIT 1');
+    return res.rows[0] ? { insights: res.rows[0].insights, created_at: new Date(res.rows[0].created_at).toISOString() } : null;
   }
 }

@@ -221,6 +221,9 @@ function setupEventListeners() {
         fetchChannels();
       } else if (target === 'view-crm') {
         fetchLeads();
+      } else if (target === 'view-intelligence') {
+        loadAnalyticsMetrics();
+        loadAnalyticsLearnings();
       }
     });
   });
@@ -249,6 +252,20 @@ function setupEventListeners() {
     channelFilter.addEventListener('change', () => {
       fetchLeads();
     });
+  }
+
+  // Filter Leads by Source selection
+  const sourceFilter = document.getElementById('source-filter');
+  if (sourceFilter) {
+    sourceFilter.addEventListener('change', () => {
+      fetchLeads();
+    });
+  }
+
+  // Update AI analysis button listener
+  const btnUpdateAnalytics = document.getElementById('btn-update-analytics');
+  if (btnUpdateAnalytics) {
+    btnUpdateAnalytics.addEventListener('click', triggerAnalyticsAnalysis);
   }
 
   // Drag & Drop Upload Zone listeners
@@ -480,7 +497,15 @@ async function fetchLeads() {
 
   try {
     const channelId = channelFilter ? channelFilter.value : '';
-    const url = channelId ? `${API_URL}/api/leads?channelPhoneId=${channelId}` : `${API_URL}/api/leads`;
+    const sourceFilter = document.getElementById('source-filter');
+    const sourceVal = sourceFilter ? sourceFilter.value : '';
+    
+    let queryParams = [];
+    if (channelId) queryParams.push(`channelPhoneId=${channelId}`);
+    if (sourceVal) queryParams.push(`source=${sourceVal}`);
+    
+    const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+    const url = `${API_URL}/api/leads${queryString}`;
     
     const res = await fetch(url);
     if (!res.ok) throw new Error('Failed to fetch leads');
@@ -1098,4 +1123,146 @@ function parseCSV(text) {
   });
 
   return results;
+}
+
+async function loadAnalyticsMetrics() {
+  try {
+    const res = await fetch(`${API_URL}/api/analytics/metrics`);
+    if (!res.ok) throw new Error('Erro ao buscar métricas de analytics');
+    const data = await res.json();
+
+    document.getElementById('metric-total-leads').innerText = data.totalLeads;
+    document.getElementById('metric-response-rate').innerText = `${data.responseRate}%`;
+    document.getElementById('metric-proposal-rate').innerText = `${data.proposalRate}%`;
+    document.getElementById('metric-conversion-rate').innerText = `${data.conversionRate}%`;
+    
+    const t = data.avgResponseTimeSec;
+    let timeFormatted = '-';
+    if (t > 0) {
+      if (t < 60) timeFormatted = `${t}s`;
+      else if (t < 3600) timeFormatted = `${Math.round(t / 60)}m`;
+      else timeFormatted = `${Math.round(t / 3600)}h`;
+    }
+    document.getElementById('metric-response-time').innerText = timeFormatted;
+
+    renderHourlyDistribution(data.hourlyDistribution);
+  } catch (error) {
+    console.error('Erro ao buscar métricas:', error);
+  }
+}
+
+async function loadAnalyticsLearnings() {
+  try {
+    const res = await fetch(`${API_URL}/api/analytics/learnings`);
+    if (!res.ok) throw new Error('Erro ao buscar aprendizados');
+    const data = await res.json();
+    renderLearnings(data);
+  } catch (error) {
+    console.error('Erro ao buscar aprendizados:', error);
+    renderLearnings(null);
+  }
+}
+
+async function triggerAnalyticsAnalysis() {
+  const spinner = document.getElementById('analytics-spinner');
+  const btnText = document.getElementById('analytics-btn-text');
+  const btn = document.getElementById('btn-update-analytics');
+
+  if (btn) btn.disabled = true;
+  if (spinner) spinner.classList.remove('hidden');
+  if (btnText) btnText.innerText = 'IA Analisando Conversas...';
+
+  try {
+    const res = await fetch(`${API_URL}/api/analytics/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      alert('Análise contínua de IA concluída com sucesso!');
+      renderLearnings({ insights: data.insights });
+    } else {
+      const err = await res.json();
+      alert(`Erro na análise: ${err.error || 'Erro desconhecido'}`);
+    }
+  } catch (error) {
+    console.error('Erro ao solicitar análise contínua de IA:', error);
+    alert('Erro ao conectar com o servidor.');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.classList.add('hidden');
+    if (btnText) btnText.innerText = 'Solicitar Nova Análise à IA';
+  }
+}
+
+function renderHourlyDistribution(distribution) {
+  const chartContainer = document.getElementById('hours-chart-container');
+  if (!chartContainer) return;
+
+  chartContainer.innerHTML = '';
+  const maxLeads = Math.max(...distribution, 1);
+
+  distribution.forEach((count, hour) => {
+    const heightPercent = (count / maxLeads) * 100;
+    const hourFormatted = String(hour).padStart(2, '0') + 'h';
+    
+    chartContainer.innerHTML += `
+      <div class="chart-bar-wrapper">
+        <div class="chart-bar" style="height: ${Math.max(heightPercent, 2)}%;" data-count="${count} leads"></div>
+        <div class="chart-label">${hourFormatted}</div>
+      </div>
+    `;
+  });
+}
+
+function renderLearnings(learnings) {
+  const successList = document.getElementById('analytics-success-factors');
+  const dropoffList = document.getElementById('analytics-dropoff-factors');
+  const objectionsBody = document.getElementById('analytics-objections-body');
+  const incentivesList = document.getElementById('analytics-best-incentives');
+  const recommendationsList = document.getElementById('analytics-recommendations');
+
+  if (!learnings || !learnings.insights) {
+    if (successList) successList.innerHTML = '<li style="color: var(--text-secondary);">Nenhuma análise executada ainda. Clique em "Solicitar Nova Análise"</li>';
+    if (dropoffList) dropoffList.innerHTML = '<li style="color: var(--text-secondary);">Nenhuma análise executada ainda.</li>';
+    if (incentivesList) incentivesList.innerHTML = '<li style="color: var(--text-secondary);">Nenhuma análise.</li>';
+    if (recommendationsList) recommendationsList.innerHTML = '<li style="color: var(--text-secondary);">Nenhuma recomendação.</li>';
+    if (objectionsBody) objectionsBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 1rem;">Nenhuma objeção mapeada ainda.</td></tr>';
+    return;
+  }
+
+  const { success_factors, dropoff_factors, main_objections, best_incentives, actionable_recommendations } = learnings.insights;
+
+  if (successList && success_factors) {
+    successList.innerHTML = success_factors.map(f => `<li>${escapeHTML(f)}</li>`).join('');
+  }
+  if (dropoffList && dropoff_factors) {
+    dropoffList.innerHTML = dropoff_factors.map(f => `<li>${escapeHTML(f)}</li>`).join('');
+  }
+
+  if (objectionsBody && main_objections) {
+    objectionsBody.innerHTML = '';
+    if (main_objections.length === 0) {
+      objectionsBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 1rem;">Nenhuma objeção detectada nas conversas.</td></tr>';
+    } else {
+      main_objections.forEach(obj => {
+        const efficacyClass = obj.handling_efficacy === 'Boa' ? 'valid' : obj.handling_efficacy === 'Média' ? 'pending' : 'invalid';
+        objectionsBody.innerHTML += `
+          <tr>
+            <td style="padding: 0.6rem; border-bottom: 1px solid var(--card-border);"><strong>${escapeHTML(obj.objection)}</strong></td>
+            <td style="padding: 0.6rem; border-bottom: 1px solid var(--card-border);">${escapeHTML(obj.frequency)}</td>
+            <td style="padding: 0.6rem; border-bottom: 1px solid var(--card-border);"><span class="doc-badge ${efficacyClass}" style="padding: 2px 6px; font-size: 0.7rem;">${escapeHTML(obj.handling_efficacy)}</span></td>
+          </tr>
+        `;
+      });
+    }
+  }
+
+  if (incentivesList && best_incentives) {
+    incentivesList.innerHTML = best_incentives.map(i => `<li>${escapeHTML(i)}</li>`).join('');
+  }
+  if (recommendationsList && actionable_recommendations) {
+    recommendationsList.innerHTML = actionable_recommendations.map(r => `<li>${escapeHTML(r)}</li>`).join('');
+  }
 }

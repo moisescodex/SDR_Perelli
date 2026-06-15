@@ -32,6 +32,7 @@
         <button class="nav-tab active" data-target="view-crm">CRM Kanban</button>
         <button class="nav-tab" data-target="view-channels">Canais de WhatsApp</button>
         <button class="nav-tab" data-target="view-documents">Documentos e PDFs</button>
+        <button class="nav-tab" data-target="view-intelligence">IA & Analytics</button>
       </nav>
 
       <div class="header-actions">
@@ -39,9 +40,18 @@
           ☀️ Tema Clean
         </button>
         <div class="channel-select-group">
-          <label for="channel-filter">Filtro:</label>
+          <label for="channel-filter">Canal:</label>
           <select id="channel-filter">
             <option value="">Todos os canais</option>
+          </select>
+        </div>
+        <div class="channel-select-group">
+          <label for="source-filter">Origem:</label>
+          <select id="source-filter">
+            <option value="">Todas as origens</option>
+            <option value="meta">Campanhas Meta (Ads)</option>
+            <option value="csv">Importação Planilha</option>
+            <option value="crm">CRM Manual</option>
           </select>
         </div>
         <div class="header-status">
@@ -266,6 +276,138 @@
           </div>
         </div>
       </div>
+    </section>
+
+    <!-- IA & ANALYTICS SECTION -->
+    <section id="view-intelligence" class="tab-view hidden">
+      <div class="board-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+        <h2>IA & Inteligência de Negócio</h2>
+        <button id="btn-update-analytics" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem;">
+          <svg class="btn-icon spinner-icon hidden" id="analytics-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px; height:16px; animation: spin 1s linear infinite;">
+            <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.2)" stroke-width="4"></circle>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="#fff" stroke-width="4"></path>
+          </svg>
+          <span id="analytics-btn-text">Solicitar Nova Análise à IA</span>
+        </button>
+      </div>
+
+      <!-- Funnel Metrics Bento Grid -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-title">Leads Totais</div>
+          <div class="metric-value" id="metric-total-leads">-</div>
+          <div class="metric-sub">Base completa cadastrada</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Taxa de Resposta</div>
+          <div class="metric-value" id="metric-response-rate">-</div>
+          <div class="metric-sub">Leads que enviaram mensagem</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Taxa de Propostas</div>
+          <div class="metric-value" id="metric-proposal-rate">-</div>
+          <div class="metric-sub">Atingiram etapa de checkout</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Taxa de Conversão</div>
+          <div class="metric-value" id="metric-conversion-rate">-</div>
+          <div class="metric-sub">Enviados para a Cozinha/Vendas</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Tempo Médio de Resposta</div>
+          <div class="metric-value" id="metric-response-time">-</div>
+          <div class="metric-sub">Tempo médio do lead responder</div>
+        </div>
+      </div>
+
+      <!-- IA Continuous Learning Reports -->
+      <div class="analytics-panels" style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+        
+        <!-- Fatores de Avanço (Success Factors) -->
+        <div class="sidebar-panel success-panel">
+          <div class="panel-header">
+            <h3>📈 O que faz os clientes avançarem</h3>
+          </div>
+          <div class="panel-body">
+            <ul class="insights-list" id="analytics-success-factors">
+              <li style="color: var(--text-secondary);">Carregando fatores de sucesso...</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Fatores de Abandono (Dropoff Factors) -->
+        <div class="sidebar-panel dropoff-panel">
+          <div class="panel-header">
+            <h3>📉 O que faz os clientes abandonarem</h3>
+          </div>
+          <div class="panel-body">
+            <ul class="insights-list" id="analytics-dropoff-factors">
+              <li style="color: var(--text-secondary);">Carregando fatores de abandono...</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="analytics-panels" style="margin-top: 1.5rem; display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+        
+        <!-- Objeções e Dúvidas (Objections Table) -->
+        <div class="sidebar-panel objections-panel">
+          <div class="panel-header">
+            <h3>🛡️ Principais Objeções e Dúvidas Detectadas</h3>
+          </div>
+          <div class="panel-body" style="padding: 0;">
+            <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+              <table class="modern-table" style="font-size: 0.8rem; width: 100%;">
+                <thead>
+                  <tr>
+                    <th>Dúvida / Objeção</th>
+                    <th>Frequência</th>
+                    <th>Eficácia SDR</th>
+                  </tr>
+                </thead>
+                <tbody id="analytics-objections-body">
+                  <tr>
+                    <td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 1rem;">Nenhuma objeção mapeada ainda.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Melhores Incentivos e Recomendações -->
+        <div class="sidebar-panel recommendations-panel">
+          <div class="panel-header">
+            <h3>💡 Melhores Incentivos & Recomendações</h3>
+          </div>
+          <div class="panel-body">
+            <h4 style="font-size: 0.8rem; font-weight: 600; color: var(--success-accent); margin-bottom: 0.5rem;">Gatilhos Mais Fortes:</h4>
+            <ul class="insights-list" id="analytics-best-incentives" style="margin-bottom: 1rem;">
+              <li style="color: var(--text-secondary);">Carregando...</li>
+            </ul>
+            
+            <h4 style="font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Recomendações Práticas:</h4>
+            <ul class="insights-list" id="analytics-recommendations">
+              <li style="color: var(--text-secondary);">Carregando...</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Horários de Entrada (Entry Distribution Graph) -->
+      <div class="sidebar-panel hourly-distribution-panel" style="margin-top: 1.5rem;">
+        <div class="panel-header">
+          <h3>📊 Horários de Pico dos Leads (Distribuição de Chegada por Hora)</h3>
+        </div>
+        <div class="panel-body">
+          <div class="hours-chart-container" id="hours-chart-container" style="display: flex; justify-content: space-between; align-items: flex-end; height: 160px; padding: 1rem 0; gap: 4px;">
+            <!-- Render bars dynamically in JS -->
+          </div>
+        </div>
+      </div>
+
     </section>
 
   </main>
