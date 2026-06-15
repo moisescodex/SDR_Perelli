@@ -144,5 +144,16 @@ async function initDb(pool: Pool) {
     );
   `);
 
+  // Tabela de logs de webhook
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS webhook_logs (
+      id SERIAL PRIMARY KEY,
+      event_type TEXT,
+      payload TEXT,
+      error_message TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   console.log('✅ Banco de dados PostgreSQL inicializado com sucesso.');
 }

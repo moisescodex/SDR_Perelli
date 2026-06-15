@@ -484,4 +484,17 @@ export class LeadState {
     const res = await db.query('SELECT * FROM sdr_learnings ORDER BY created_at DESC LIMIT 1');
     return res.rows[0] ? { insights: res.rows[0].insights, created_at: new Date(res.rows[0].created_at).toISOString() } : null;
   }
+
+  static async saveWebhookLog(eventType: string, payload: any, errorMessage?: string): Promise<void> {
+    const db = await getDb();
+    if (!isDbConnected || !db) return;
+    try {
+      await db.query(
+        `INSERT INTO webhook_logs (event_type, payload, error_message, created_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+        [eventType, JSON.stringify(payload), errorMessage || null]
+      );
+    } catch (e) {
+      console.error('Erro ao salvar webhook log no banco:', e);
+    }
+  }
 }

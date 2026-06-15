@@ -954,6 +954,9 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
       const ticket = body.ticket;
       const contact = ticket.contact || {};
 
+      // Salva log de webhook para depuração
+      await LeadState.saveWebhookLog('whaticket_payload', { msg, ticket });
+
       // Ignora mensagens que o próprio bot enviou, mas detecta intervenção do agente humano
       if (msg.fromMe === true) {
         const phone = msg.from || contact.number;
@@ -1028,7 +1031,13 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
       let isWhaticketMedia = false;
 
       if (msg.mediaUrl || msg.url) {
-        const mediaUrl = msg.mediaUrl || msg.url;
+        let mediaUrl = msg.mediaUrl || msg.url;
+        if (mediaUrl && !mediaUrl.startsWith('http')) {
+          const whaticketApiUrl = process.env.WHATICKET_API_URL || 'https://api.perellicorretora.com.br';
+          const cleanUrl = whaticketApiUrl.replace(/\/$/, '');
+          mediaUrl = `${cleanUrl}/${mediaUrl.replace(/^\//, '')}`;
+        }
+
         const mimeType = msg.mediaType || (mediaUrl.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
         const isImageOrPdf = mimeType.startsWith('image/') || mimeType === 'application/pdf';
 
@@ -1044,10 +1053,19 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
               console.log(`📝 Análise de mídia do Whaticket de ${contactName}: "${userText}"`);
 
               await updateLeadDocStatus(phone, activeChannel, analysis);
+              // Log no banco
+              await LeadState.saveWebhookLog('whaticket_media_success', { phone, mediaUrl, analysis });
+            } else {
+              const errText = `Falha ao baixar mídia do Whaticket. Status: ${resMedia.status} ${resMedia.statusText}`;
+              console.error(`❌ ${errText}`);
+              await LeadState.saveWebhookLog('whaticket_media_error', { phone, mediaUrl, status: resMedia.status, statusText: resMedia.statusText }, errText);
             }
-          } catch (err) {
+          } catch (err: any) {
             console.error('Erro ao baixar mídia do Whaticket:', err);
+            await LeadState.saveWebhookLog('whaticket_media_exception', { phone, mediaUrl }, err.message || String(err));
           }
+        } else {
+          console.log(`⚠️ Tipo de mídia não processável: ${mimeType}`);
         }
       }
 
