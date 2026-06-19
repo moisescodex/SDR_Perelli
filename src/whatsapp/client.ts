@@ -153,6 +153,19 @@ whatsappRouter.get('/api/leads/:phone/messages', async (req: Request, res: Respo
   }
 });
 
+// Exclui um lead (limpa a conversa e a memória do SDR)
+whatsappRouter.delete('/api/leads/:phone', async (req: Request, res: Response) => {
+  const phone = req.params.phone as string;
+  const channelPhoneId = req.query.channelPhoneId as string || 'default';
+  try {
+    await LeadState.deleteLead(phone, channelPhoneId);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Erro ao excluir lead:', error);
+    res.status(500).json({ error: error.message || 'Erro ao excluir lead' });
+  }
+});
+
 // Cadastra ou reativa um Lead Ativo do CRM
 whatsappRouter.post('/api/leads', async (req: Request, res: Response) => {
   const { phone, name, channelPhoneId, initialMessage, useTemplate, templateName } = req.body;

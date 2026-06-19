@@ -27,6 +27,7 @@ const btnRefresh = document.getElementById('btn-refresh');
 const chatDrawer = document.getElementById('chat-drawer');
 const drawerOverlay = document.getElementById('drawer-overlay');
 const btnCloseChat = document.getElementById('btn-close-chat');
+const btnDeleteChat = document.getElementById('btn-delete-chat');
 
 // Chat Drawer detail fields
 const chatLeadName = document.getElementById('chat-lead-name');
@@ -232,6 +233,9 @@ function setupEventListeners() {
   btnRefresh.addEventListener('click', fetchLeads);
   btnCloseChat.addEventListener('click', closeChatDrawer);
   drawerOverlay.addEventListener('click', closeChatDrawer);
+  if (btnDeleteChat) {
+    btnDeleteChat.addEventListener('click', deleteActiveLead);
+  }
 
   // Send manual override
   btnSendManual.addEventListener('click', sendManualMessage);
@@ -782,6 +786,34 @@ async function sendManualMessage() {
     console.error('Error sending manual message:', err);
   } finally {
     btnSendManual.disabled = false;
+  }
+}
+
+/**
+ * Delete active lead and its conversation history
+ */
+async function deleteActiveLead() {
+  if (!activeLead) return;
+  
+  const confirmDelete = confirm(`Tem certeza de que deseja excluir o lead "${activeLead.name || activeLead.phone}" e limpar toda a conversa? Isso apagará o histórico da memória do SDR.`);
+  if (!confirmDelete) return;
+
+  try {
+    const channelPhoneId = activeLead.channel_phone_id || 'default';
+    const res = await fetch(`${API_URL}/api/leads/${activeLead.phone}?channelPhoneId=${channelPhoneId}`, {
+      method: 'DELETE'
+    });
+
+    if (res.ok) {
+      closeChatDrawer();
+      await fetchLeads();
+    } else {
+      const errData = await res.json();
+      alert(`Erro ao excluir lead: ${errData.error || 'Erro desconhecido'}`);
+    }
+  } catch (err) {
+    console.error('Error deleting lead:', err);
+    alert('Erro de conexão ao tentar excluir lead');
   }
 }
 

@@ -497,4 +497,14 @@ export class LeadState {
       console.error('Erro ao salvar webhook log no banco:', e);
     }
   }
+
+  static async deleteLead(phone: string, channelPhoneId: string = 'default'): Promise<void> {
+    const db = await getDb();
+    if (!isDbConnected || !db) {
+      const key = this.getInMemoryKey(phone, channelPhoneId);
+      inMemoryLeads.delete(key);
+      return;
+    }
+    await db.query('DELETE FROM leads WHERE phone = $1 AND channel_phone_id = $2', [phone, channelPhoneId]);
+  }
 }
