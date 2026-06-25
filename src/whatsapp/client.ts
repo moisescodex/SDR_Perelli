@@ -959,7 +959,7 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
 
       // Ignora mensagens que o próprio bot enviou, mas detecta intervenção do agente humano
       if (msg.fromMe === true) {
-        const phone = msg.from || contact.number;
+        const phone = contact.number || msg.from;
         const activeChannel = String(ticket.whatsappId || 'default');
         
         if (phone) {
@@ -1118,6 +1118,15 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
       if (!lead.name || lead.name === 'Lead') {
         lead.name = contactName;
         await LeadState.saveLead(lead);
+      }
+
+      // Detecção de intervenção baseada no status ou atribuição do ticket no Z-PRO
+      if (ticket.status === 'open' || ticket.userId !== null) {
+        if (!lead.requires_intervention) {
+          console.log(`[HUMAN INTERVENTION DETECTED - Z-PRO STATUS/USERID] O ticket para ${phone} está em atendimento ou atribuído (Status: ${ticket.status}, UserID: ${ticket.userId}). Parando a IA.`);
+          lead.requires_intervention = true;
+          await LeadState.saveLead(lead);
+        }
       }
 
       // Salva a mensagem no histórico do lead
