@@ -521,6 +521,22 @@ input:checked + .slider:before {
   color: var(--text-primary);
 }
 
+.btn-delete-lead {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+.btn-delete-lead:hover {
+  color: #e74c3c;
+}
+
 /* Detail Info Bar */
 .lead-details-bar {
   background: rgba(0, 0, 0, 0.25);

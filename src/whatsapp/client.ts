@@ -50,6 +50,7 @@ class BotMessageTracker {
 }
 
 export const botTracker = new BotMessageTracker();
+export const botSentWamids = new Set<string>();
 
 // Rota de Login para o CRM Dashboard
 whatsappRouter.post('/api/login', (req: Request, res: Response) => {
@@ -149,6 +150,19 @@ whatsappRouter.get('/api/leads/:phone/messages', async (req: Request, res: Respo
     })));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Exclui um lead (limpa a conversa e a memória do SDR)
+whatsappRouter.delete('/api/leads/:phone', async (req: Request, res: Response) => {
+  const phone = req.params.phone as string;
+  const channelPhoneId = req.query.channelPhoneId as string || 'default';
+  try {
+    await LeadState.deleteLead(phone, channelPhoneId);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Erro ao excluir lead:', error);
+    res.status(500).json({ error: error.message || 'Erro ao excluir lead' });
   }
 });
 
@@ -519,9 +533,42 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
       // Recupera o Phone Number ID destinatário para multi-número
       const phone_number_id = metadata?.phone_number_id; 
       const messages = value?.messages;
+      const statuses = value?.statuses;
 
       if (!res.headersSent) {
         res.sendStatus(200);
+      }
+
+      // Se for atualização de status de envio de mensagem (Meta Coexistência)
+      if (statuses && Array.isArray(statuses) && phone_number_id) {
+        for (const statusObj of statuses) {
+          const statusVal = statusObj.status; // 'sent', 'delivered', 'read', 'failed'
+          const phone = statusObj.recipient_id;
+          const wamid = statusObj.id;
+          const activeChannel = phone_number_id;
+
+          if (statusVal === 'sent') {
+            // Verifica se essa mensagem foi enviada pelo nosso bot
+            const isBot = botSentWamids.has(wamid);
+            if (!isBot) {
+              console.log(`[HUMAN INTERVENTION DETECTED - META STATUS] Detectada mensagem manual enviada por outro sistema para ${phone} (wamid: ${wamid}). Parando a IA.`);
+              try {
+                const lead = await LeadState.getLead(phone, activeChannel);
+                lead.requires_intervention = true;
+                lead.follow_up_level = 0;
+                lead.last_follow_up_at = null;
+                await LeadState.saveLead(lead);
+                await LeadState.addMessage(phone, activeChannel, 'assistant', `[Intervenção Humana Externa]`);
+              } catch (err) {
+                console.error('Erro ao marcar requires_intervention via status da Meta:', err);
+              }
+            } else {
+              // Remove do cache de enviados pelo bot
+              botSentWamids.delete(wamid);
+            }
+          }
+        }
+        return;
       }
 
       if (messages && messages[0] && phone_number_id) {
@@ -1672,7 +1719,11 @@ export async function sendMessage(channelPhoneId: string, to: string, text: stri
     });
 
     const data = await response.json() as any;
-    if (!response.ok) {
+    if (response.ok && data.messages?.[0]?.id) {
+      const wamid = data.messages[0].id;
+      botSentWamids.add(wamid);
+      setTimeout(() => botSentWamids.delete(wamid), 300000); // 5 min TTL
+    } else if (!response.ok) {
       console.error(`❌ Erro da API da Meta no canal ${config.name} ao enviar:`, JSON.stringify(data, null, 2));
     }
   } catch (err) {
@@ -1714,7 +1765,11 @@ export async function sendTemplateMessage(channelPhoneId: string, to: string, te
     });
 
     const data: any = await response.json();
-    if (!response.ok) {
+    if (response.ok && data.messages?.[0]?.id) {
+      const wamid = data.messages[0].id;
+      botSentWamids.add(wamid);
+      setTimeout(() => botSentWamids.delete(wamid), 300000); // 5 min TTL
+    } else if (!response.ok) {
       console.error('❌ Erro da API da Meta ao enviar template:', JSON.stringify(data, null, 2));
       throw new Error(data.error?.message || 'Erro ao enviar template');
     }
@@ -1803,8 +1858,12 @@ export async function sendMediaMessage(
       })
     });
 
-    const data = await response.json();
-    if (!response.ok) {
+    const data = await response.json() as any;
+    if (response.ok && data.messages?.[0]?.id) {
+      const wamid = data.messages[0].id;
+      botSentWamids.add(wamid);
+      setTimeout(() => botSentWamids.delete(wamid), 300000); // 5 min TTL
+    } else if (!response.ok) {
       console.error(`❌ Erro da API da Meta ao enviar mídia (${type}):`, JSON.stringify(data, null, 2));
     }
   } catch (err) {
