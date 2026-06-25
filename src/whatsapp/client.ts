@@ -1182,14 +1182,8 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
         await LeadState.saveLead(lead);
       }
 
-      // Detecção de intervenção baseada no status ou atribuição do ticket no Z-PRO
-      if (ticket.status === 'open' || ticket.userId !== null) {
-        if (!lead.requires_intervention) {
-          console.log(`[HUMAN INTERVENTION DETECTED - Z-PRO STATUS/USERID] O ticket para ${phone} está em atendimento ou atribuído (Status: ${ticket.status}, UserID: ${ticket.userId}). Parando a IA.`);
-          lead.requires_intervention = true;
-          await LeadState.saveLead(lead);
-        }
-      }
+      // Detecção de intervenção baseada no status ou atribuição do ticket no Z-PRO desativada para evitar falsos positivos
+      // (a detecção real ocorre quando o vendedor envia uma mensagem de fato: msg.fromMe === true)
 
       // Se o corretor humano interveio ou a IA está pausada para este lead, retorna imediatamente antes de salvar mensagem e agendar resposta
       if (lead.requires_intervention) {
