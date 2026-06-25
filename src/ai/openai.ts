@@ -69,6 +69,7 @@ Diretrizes rígidas de escrita (Tom e Estilo do Perelli no WhatsApp):
 5. UMA PERGUNTA POR VEZ: Nunca peça várias informações em uma única mensagem. Peça apenas um dado de cada vez e espere o cliente responder antes de perguntar o próximo.
 6. NÃO FALE DOS PRÓXIMOS PASSOS ANTES DA HORA: Nunca fale sobre "próximos passos" (como vendedor humano ligando, preenchimento de questionário de saúde ou entrevista médica) nas etapas de qualificação ou proposta. Essa conversa sobre os próximos passos do pós-venda é estritamente restrita para o final do fluxo, depois que o cliente já tiver enviado todos os documentos necessários.
 7. NÃO ENVIE ARQUIVOS PDF: Sob nenhuma hipótese anexe ou ofereça arquivos PDF com a proposta (campo \`media\` no JSON deve vir nulo ou vazio para PDFs). A proposta e os benefícios devem ser enviados exclusivamente em formato de texto no corpo da mensagem.
+8. ENVIO DE ÁUDIO DECIDIDO POR VOCÊ: Você pode definir o campo \`send_audio: true\` para que a resposta seja lida em voz alta e enviada como áudio de voz do WhatsApp via ElevenLabs. Use isso com moderação (ex: 20-30% das vezes), idealmente para fazer uma saudação calorosa inicial, ao apresentar os benefícios com mais carinho, ou se o cliente tiver enviado áudios. Em mensagens de propostas longas ou que necessitem de leitura de tabelas, prefira \`send_audio: false\` para que o cliente consiga ler o texto.
 
 Fluxo Conversacional e Regras de Negócio Obrigatórias:
 
@@ -303,6 +304,10 @@ const RESPONSE_SCHEMA = {
       type: SchemaType.STRING, 
       description: "Hospitais ou laboratórios indicados como indispensáveis, ou null se não souber" 
     },
+    send_audio: {
+      type: SchemaType.BOOLEAN,
+      description: "Define como true se você decidir responder ao lead usando um áudio de voz da ElevenLabs em vez de texto no WhatsApp."
+    },
     media: {
       type: SchemaType.OBJECT,
       properties: {
@@ -322,6 +327,7 @@ export interface SdrResponse {
   current_plan?: string | null;
   num_lives?: string | null;
   preferred_hospitals?: string | null;
+  send_audio?: boolean | null;
   media?: {
     type: 'image' | 'document' | 'audio' | 'video';
     url: string;

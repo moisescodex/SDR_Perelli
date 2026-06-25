@@ -767,15 +767,41 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
             // Salva a resposta no histórico (incluindo mídias sugeridas se houver)
             await LeadState.addMessage(phone, activeChannel, 'assistant', sdrResult.response, sdrResult.media);
 
-            // Divide a resposta em mensagens consecutivas
-            const chunks = splitMessage(sdrResult.response);
-            console.log(`📤 Enviando resposta dividida em ${chunks.length} mensagens para ${phone}...`);
+            // Envio por áudio de voz da ElevenLabs (se o Gemini decidir ou se o cliente mandou áudio)
+            let audioSentSuccessfully = false;
+            const shouldSendAudio = (sdrResult.send_audio === true || message.type === 'audio') && env.ELEVENLABS_API_KEY;
+            
+            if (shouldSendAudio) {
+              console.log(`🎙️ [TTS ELEVENLABS - META] Gerando áudio de voz para ${phone}...`);
+              const voiceBuffer = await generateSpeech(sdrResult.response);
+              if (voiceBuffer) {
+                try {
+                  const delay = getTypingDelay(sdrResult.response);
+                  await new Promise(resolve => setTimeout(resolve, delay));
+                  
+                  const mediaId = await uploadMediaToMeta(activeChannel, voiceBuffer, 'audio/ogg', `voice_${Date.now()}.ogg`);
+                  await sendMediaMessage(activeChannel, phone, 'audio', { id: mediaId });
+                  await LeadState.addMessage(phone, activeChannel, 'assistant', `[Resposta enviada por áudio/voz]`);
+                  audioSentSuccessfully = true;
+                  console.log(`🎙️ [TTS ELEVENLABS - META] Áudio enviado com sucesso para ${phone}`);
+                } catch (audioErr) {
+                  console.error(`❌ [TTS FALLBACK - META] Erro ao enviar áudio via Meta:`, audioErr);
+                }
+              }
+            }
 
-            for (let i = 0; i < chunks.length; i++) {
-              const chunk = chunks[i];
-              const delay = getTypingDelay(chunk);
-              await new Promise(resolve => setTimeout(resolve, delay));
-              await sendMessage(activeChannel, phone, chunk);
+            // Fallback: Envia mensagem normal de texto se a IA não pediu áudio ou se a geração falhou
+            if (!audioSentSuccessfully) {
+              // Divide a resposta em mensagens consecutivas
+              const chunks = splitMessage(sdrResult.response);
+              console.log(`📤 Enviando resposta dividida em ${chunks.length} mensagens para ${phone}...`);
+
+              for (let i = 0; i < chunks.length; i++) {
+                const chunk = chunks[i];
+                const delay = getTypingDelay(chunk);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                await sendMessage(activeChannel, phone, chunk);
+              }
             }
 
             // Se a IA escolheu enviar uma mídia associada (PDF, Vídeo, Áudio)
@@ -789,17 +815,6 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
                 sdrResult.media.filename
               );
               console.log(`📤 Mídia enviada para ${phone}: [${sdrResult.media.type}] URL: ${sdrResult.media.url}`);
-            }
-
-            // Resposta por áudio opcional via ElevenLabs caso tenha recebido áudio
-            if (message.type === 'audio' && env.ELEVENLABS_API_KEY) {
-              const voiceBuffer = await generateSpeech(sdrResult.response);
-              if (voiceBuffer) {
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                const mediaId = await uploadMediaToMeta(activeChannel, voiceBuffer, 'audio/ogg', `voice_${Date.now()}.ogg`);
-                await sendMediaMessage(activeChannel, phone, 'audio', { id: mediaId });
-                await LeadState.addMessage(phone, activeChannel, 'assistant', `[Resposta enviada por áudio/voz]`);
-              }
             }
           } catch (err) {
             console.error(`❌ Erro ao enviar resposta para ${phone}:`, err);
@@ -1402,14 +1417,48 @@ async function triggerNextResponse(phone: string, activeChannel: string, baseUrl
 
     await LeadState.addMessage(phone, activeChannel, 'assistant', sdrResult.response, sdrResult.media);
 
-    const chunks = splitMessage(sdrResult.response);
-    console.log(`📤 Enviando resposta Whaticket em ${chunks.length} mensagens para ${phone}...`);
+    // Envio por áudio de voz da ElevenLabs (se o Gemini decidir e a API key estiver configurada)
+    let audioSentSuccessfully = false;
+    if (sdrResult.send_audio === true && env.ELEVENLABS_API_KEY) {
+      console.log(`🎙️ [TTS ELEVENLABS - WHATICKET] Gerando áudio de voz para ${phone}...`);
+      const voiceBuffer = await generateSpeech(sdrResult.response);
+      if (voiceBuffer) {
+        try {
+          const timestamp = Date.now();
+          const audioFilename = `voice_${phone}_${timestamp}.mp3`;
+          const localPath = path.join(__dirname, '../../documentos', audioFilename);
+          
+          // Garante que a pasta documentos existe
+          fs.mkdirSync(path.dirname(localPath), { recursive: true });
+          fs.writeFileSync(localPath, voiceBuffer);
+          
+          const voiceUrl = `${baseUrl.replace(/\/$/, '')}/documentos/${audioFilename}`;
+          console.log(`🎙️ [TTS ELEVENLABS - WHATICKET] Áudio salvo localmente em ${localPath}. Link: ${voiceUrl}`);
+          
+          // Simula o tempo de gravação do áudio (tempo de digitação)
+          const delay = getTypingDelay(sdrResult.response);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          
+          await sendMediaMessage(activeChannel, phone, 'audio', { link: voiceUrl }, 'audio.mp3');
+          audioSentSuccessfully = true;
+          console.log(`🎙️ [TTS ELEVENLABS - WHATICKET] Áudio enviado com sucesso para ${phone}`);
+        } catch (audioErr) {
+          console.error(`❌ [TTS FALLBACK - WHATICKET] Erro ao gravar/enviar áudio:`, audioErr);
+        }
+      }
+    }
 
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      const delay = getTypingDelay(chunk);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      await sendMessage(activeChannel, phone, chunk);
+    // Fallback: Envia mensagem normal de texto se a IA não pediu áudio ou se a geração do áudio falhou
+    if (!audioSentSuccessfully) {
+      const chunks = splitMessage(sdrResult.response);
+      console.log(`📤 Enviando resposta Whaticket em ${chunks.length} mensagens para ${phone}...`);
+
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        const delay = getTypingDelay(chunk);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        await sendMessage(activeChannel, phone, chunk);
+      }
     }
 
     if (sdrResult.media) {
