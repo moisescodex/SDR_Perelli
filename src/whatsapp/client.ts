@@ -1191,6 +1191,12 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
         }
       }
 
+      // Se o corretor humano interveio ou a IA está pausada para este lead, retorna imediatamente antes de salvar mensagem e agendar resposta
+      if (lead.requires_intervention) {
+        console.log(`[AI SDR BYPASSED - WHATICKET] O corretor interveio para o lead ${phone}. AI não responderá.`);
+        return;
+      }
+
       // Salva a mensagem no histórico do lead
       await LeadState.addMessage(phone, activeChannel, 'user', userText);
 
@@ -1532,7 +1538,7 @@ export async function sendWhaticketMessage(whatsappId: string, to: string, text:
     const apiId = parts[1];
 
     if (!apiId) {
-      console.error('❌ Erro: ApiID (UUID) não configurado no access_token do canal Whaticket. O formato correto é: "SUA_API_KEY;SEU_API_ID"');
+      console.warn(`⚠️ [WHATICKET] Envio cancelado: ApiID (UUID) não configurado no access_token do canal Whaticket ID ${whatsappId}.`);
       return;
     }
 
@@ -1587,7 +1593,7 @@ export async function sendWhaticketMediaMessage(
     const apiId = parts[1];
 
     if (!apiId) {
-      console.error('❌ Erro: ApiID (UUID) não configurado no access_token do canal Whaticket. O formato correto é: "SUA_API_KEY;SEU_API_ID"');
+      console.warn(`⚠️ [WHATICKET] Envio de mídia cancelado: ApiID (UUID) não configurado no access_token do canal Whaticket ID ${whatsappId}.`);
       return;
     }
 
