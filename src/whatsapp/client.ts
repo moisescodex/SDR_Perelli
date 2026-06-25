@@ -1167,6 +1167,30 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
             console.error('Erro ao baixar mídia do Whaticket:', err);
             await LeadState.saveWebhookLog('whaticket_media_exception', { phone, mediaUrl }, err.message || String(err));
           }
+        } else if (mimeType.startsWith('audio/')) {
+          try {
+            console.log(`\n📩 [WHATICKET] Baixando áudio de: ${mediaUrl}`);
+            const headers: HeadersInit = {};
+            if (mediaUrl.includes('lookaside.fbsbx.com') || mediaUrl.includes('facebook.com')) {
+              const bmToken = ticket?.whatsapp?.bmToken;
+              if (bmToken) {
+                headers['Authorization'] = `Bearer ${bmToken}`;
+                console.log(`🔑 Usando token WABA para baixar áudio do Facebook.`);
+              }
+            }
+
+            const resMedia = await fetch(mediaUrl, { headers });
+            if (resMedia.ok) {
+              const buffer = Buffer.from(await resMedia.arrayBuffer());
+              userText = await transcribeAudio(buffer, mimeType);
+              isWhaticketMedia = true;
+              console.log(`📝 Áudio transcrevido do Whaticket de ${contactName}: "${userText}"`);
+            } else {
+              console.error(`❌ Falha ao baixar áudio do Whaticket. Status: ${resMedia.status}`);
+            }
+          } catch (err: any) {
+            console.error('Erro ao baixar/transcrever áudio do Whaticket:', err);
+          }
         } else {
           console.log(`⚠️ Tipo de mídia não processável: ${mimeType}`);
         }
