@@ -1472,14 +1472,41 @@ async function triggerNextResponse(phone: string, activeChannel: string, baseUrl
 
     if (sdrResult.media) {
       await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      let finalMediaUrl = sdrResult.media.url;
+      let dynamicAudioGenerated = false;
+
+      // Se a mídia for do tipo áudio, gera o arquivo de áudio sob demanda usando ElevenLabs
+      if (sdrResult.media.type === 'audio' && env.ELEVENLABS_API_KEY) {
+        console.log(`🎙️ [TTS ELEVENLABS - MEDIA AUDIO] Gerando áudio explicativo sob demanda para ${phone}...`);
+        const explanationText = sdrResult.response || "Vou te explicar como funciona.";
+        const voiceBuffer = await generateSpeech(explanationText);
+        if (voiceBuffer) {
+          try {
+            const timestamp = Date.now();
+            const audioFilename = `explicativo_${phone}_${timestamp}.mp3`;
+            const localPath = path.join(__dirname, '../../documentos', audioFilename);
+            
+            fs.mkdirSync(path.dirname(localPath), { recursive: true });
+            fs.writeFileSync(localPath, voiceBuffer);
+            
+            finalMediaUrl = `${baseUrl.replace(/\/$/, '')}/documentos/${audioFilename}`;
+            dynamicAudioGenerated = true;
+            console.log(`🎙️ [TTS ELEVENLABS - MEDIA AUDIO] Áudio dinâmico gerado em: ${finalMediaUrl}`);
+          } catch (audioErr) {
+            console.error(`❌ [TTS FALLBACK - MEDIA AUDIO] Falha ao gerar áudio dinâmico, usando estático:`, audioErr);
+          }
+        }
+      }
+
       await sendMediaMessage(
         activeChannel,
         phone,
         sdrResult.media.type,
-        { link: sdrResult.media.url },
+        { link: finalMediaUrl },
         sdrResult.media.filename
       );
-      console.log(`📤 Mídia enviada para ${phone}: [${sdrResult.media.type}] URL: ${sdrResult.media.url}`);
+      console.log(`📤 Mídia enviada para ${phone}: [${sdrResult.media.type}] URL: ${finalMediaUrl}`);
     }
 
     resetFollowUpTimer(phone, activeChannel);
