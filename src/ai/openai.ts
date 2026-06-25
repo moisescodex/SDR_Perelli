@@ -42,14 +42,19 @@ async function callGeminiWithRetry(
       return await model.generateContent(generateArgs);
     } catch (error: any) {
       const errorStr = String(error?.message || error || '');
-      const isRateLimit = errorStr.includes('429') || 
-                          errorStr.toLowerCase().includes('quota') || 
-                          errorStr.toLowerCase().includes('too many requests') ||
-                          error?.status === 429;
+      const isTransientError = 
+        errorStr.includes('429') || 
+        errorStr.includes('503') ||
+        errorStr.toLowerCase().includes('quota') || 
+        errorStr.toLowerCase().includes('too many requests') ||
+        errorStr.toLowerCase().includes('service unavailable') ||
+        errorStr.toLowerCase().includes('experiencing high demand') ||
+        error?.status === 429 ||
+        error?.status === 503;
       
-      if (isRateLimit && attempt < maxRetries) {
+      if (isTransientError && attempt < maxRetries) {
         const waitTime = delayMs * Math.pow(2, attempt - 1);
-        console.warn(`⚠️ [Gemini API] Limite de cota atingido (429/Quota). Tentativa ${attempt}/${maxRetries}. Aguardando ${waitTime}ms antes de tentar novamente...`);
+        console.warn(`⚠️ [Gemini API] Falha temporária / Alta demanda (429/503). Tentativa ${attempt}/${maxRetries}. Aguardando ${waitTime}ms antes de tentar novamente...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
         continue;
       }
