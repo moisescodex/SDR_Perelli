@@ -158,7 +158,16 @@ whatsappRouter.delete('/api/leads/:phone', async (req: Request, res: Response) =
   const phone = req.params.phone as string;
   const channelPhoneId = req.query.channelPhoneId as string || 'default';
   try {
+    // Limpa timers e estados ativos em memória
+    clearFollowUpTimer(phone, channelPhoneId);
+    
+    const delayKey = `${phone}_${channelPhoneId}`;
+    activeDelays.delete(delayKey);
+    activeSending.delete(delayKey);
+    pendingProcessing.delete(delayKey);
+
     await LeadState.deleteLead(phone, channelPhoneId);
+    console.log(`🗑️ Lead ${phone} (canal: ${channelPhoneId}) foi excluído com sucesso do banco e memória.`);
     res.json({ success: true });
   } catch (error: any) {
     console.error('Erro ao excluir lead:', error);
