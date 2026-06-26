@@ -761,12 +761,22 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
     } else if (isDocSent) {
       stage = 'CONVERTED';
       response = `Recebi os documentos! Agora, o próximo passo é o nosso consultor humano entrar em contato para te auxiliar no cadastro final e validar tudo na operadora.\n\nDepois disso, você receberá um e-mail para preencher um questionário de saúde e, em seguida, faremos uma entrevista médica online. Mas não se preocupe, vamos te guiar em cada etapa, combinado?`;
-    } else if (isAskingUse) {
+  } else if (isAskingUse) {
       response = `O plano funciona sim com coparticipação (conhecido como "use e pague"), onde você só paga taxas muito pequenas por consultas e exames que realmente realizar. Isso garante uma mensalidade muito mais barata no final do mês!\n\nEstou te enviando um áudio curto aqui que explica direitinho como funciona.`;
       media = {
         type: 'audio',
         url: `${baseUrl}/documentos/audio_explicativo_planos.mp3`,
         filename: 'audio_explicativo_planos.mp3'
+      };
+      return {
+        stage,
+        response,
+        has_cnpj,
+        current_plan,
+        num_lives,
+        preferred_hospitals,
+        media,
+        send_audio: true
       };
     } else if (isAskingDocs || lastUserMsg.includes('ok') || lastUserMsg.includes('manda') || lastUserMsg.includes('sim') || lastUserMsg.includes('quero')) {
       response = `Perfeito! Para darmos início à contratação, preciso que envie por aqui fotos bem legíveis dos seguintes documentos:\n\n🧾 DOCUMENTOS NECESSÁRIOS:\nTITULAR\n📸 FOTOS LEGIVEIS \n\n📧 EMAIL\n🪪 RG ou CNH (FRENTE E VERSO) \n🏠 COMPROVANTE DE RESIDENCIA\n\nAh, uma dica: na hora de tirar foto, tire o RG ou CNH fora da capinha plástica pra ficar bem visível, tá bom? E o comprovante de residência não precisa estar no seu nome, pode ser de outra pessoa sem problemas.`;
@@ -784,7 +794,8 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
     current_plan,
     num_lives,
     preferred_hospitals,
-    media
+    media,
+    send_audio: false
   };
 }
 
