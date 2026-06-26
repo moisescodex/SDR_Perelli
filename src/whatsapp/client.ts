@@ -1450,9 +1450,15 @@ async function triggerNextResponse(phone: string, activeChannel: string, baseUrl
 
     await LeadState.addMessage(phone, activeChannel, 'assistant', sdrResult.response, sdrResult.media);
 
-    // Envio por áudio de voz da ElevenLabs (se o Gemini decidir e a API key estiver configurada)
+    // Envio por áudio de voz da ElevenLabs (se o Gemini decidir ou se o cliente mandou áudio e a API key estiver configurada)
     let audioSentSuccessfully = false;
-    if (sdrResult.send_audio === true && env.ELEVENLABS_API_KEY) {
+    const lastUserMsgText = lastMsg.content || '';
+    const wasAudioInput = lastUserMsgText.includes('[Áudio enviado') || 
+                         lastUserMsgText.includes('[audio') || 
+                         lastUserMsgText.includes('audio');
+    const shouldSendAudio = (sdrResult.send_audio === true || wasAudioInput) && env.ELEVENLABS_API_KEY;
+
+    if (shouldSendAudio) {
       console.log(`🎙️ [TTS ELEVENLABS - WHATICKET] Gerando áudio de voz para ${phone}...`);
       const voiceBuffer = await generateSpeech(sdrResult.response);
       if (voiceBuffer) {
