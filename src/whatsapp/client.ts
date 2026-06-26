@@ -365,7 +365,7 @@ whatsappRouter.post('/api/simulate', async (req: Request, res: Response) => {
       activeDelays.delete(delayKey);
     }
 
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = (req.get('host') || '').includes('localhost') ? `http://${req.get('host')}` : `https://${req.get('host')}`;
 
     // Resposta rápida de 1.5s na simulação local
     const timeoutId = setTimeout(async () => {
@@ -752,7 +752,7 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
         const randomDelay = Math.floor(Math.random() * 4000) + 2000;
         const totalDelay = baseDelay + perCharDelay + randomDelay;
 
-        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const baseUrl = (req.get('host') || '').includes('localhost') ? `http://${req.get('host')}` : `https://${req.get('host')}`;
 
         const timeoutId = setTimeout(async () => {
           activeDelays.delete(delayKey);
@@ -957,7 +957,7 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
       const randomDelay = Math.floor(Math.random() * 4000) + 2000;
       const totalDelay = baseDelay + perCharDelay + randomDelay;
 
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const baseUrl = (req.get('host') || '').includes('localhost') ? `http://${req.get('host')}` : `https://${req.get('host')}`;
 
       const timeoutId = setTimeout(async () => {
         activeDelays.delete(delayKey);
@@ -1252,7 +1252,7 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
       const randomDelay = Math.floor(Math.random() * 4000) + 2000;
       const totalDelay = baseDelay + perCharDelay + randomDelay;
 
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const baseUrl = (req.get('host') || '').includes('localhost') ? `http://${req.get('host')}` : `https://${req.get('host')}`;
 
       const timeoutId = setTimeout(async () => {
         activeDelays.delete(delayKey);
