@@ -1464,7 +1464,7 @@ async function triggerNextResponse(phone: string, activeChannel: string, baseUrl
       if (voiceBuffer) {
         try {
           const timestamp = Date.now();
-          const audioFilename = `voice_${phone}_${timestamp}.mp3`;
+          const audioFilename = `voice_${phone}_${timestamp}.ogg`;
           const localPath = path.join(__dirname, '../../documentos', audioFilename);
           
           // Garante que a pasta documentos existe
@@ -1478,7 +1478,7 @@ async function triggerNextResponse(phone: string, activeChannel: string, baseUrl
           const delay = getTypingDelay(sdrResult.response);
           await new Promise(resolve => setTimeout(resolve, delay));
           
-          await sendMediaMessage(activeChannel, phone, 'audio', { link: voiceUrl }, 'audio.mp3');
+          await sendMediaMessage(activeChannel, phone, 'audio', { link: voiceUrl }, 'audio.ogg');
           audioSentSuccessfully = true;
           console.log(`🎙️ [TTS ELEVENLABS - WHATICKET] Áudio enviado com sucesso para ${phone}`);
         } catch (audioErr) {
@@ -1514,7 +1514,7 @@ async function triggerNextResponse(phone: string, activeChannel: string, baseUrl
         if (voiceBuffer) {
           try {
             const timestamp = Date.now();
-            const audioFilename = `explicativo_${phone}_${timestamp}.mp3`;
+            const audioFilename = `explicativo_${phone}_${timestamp}.ogg`;
             const localPath = path.join(__dirname, '../../documentos', audioFilename);
             
             fs.mkdirSync(path.dirname(localPath), { recursive: true });
@@ -1534,7 +1534,7 @@ async function triggerNextResponse(phone: string, activeChannel: string, baseUrl
         phone,
         sdrResult.media.type,
         { link: finalMediaUrl },
-        sdrResult.media.filename
+        dynamicAudioGenerated ? 'audio.ogg' : sdrResult.media.filename
       );
       console.log(`📤 Mídia enviada para ${phone}: [${sdrResult.media.type}] URL: ${finalMediaUrl}`);
     }
@@ -1670,18 +1670,26 @@ export async function sendWhaticketMediaMessage(
     formData.append('number', cleanNumber);
     formData.append('whatsappId', whatsappId);
     formData.append('externalKey', "sdr_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7));
-    formData.append('body', filename || (type === 'document' ? 'documento.pdf' : type === 'audio' ? 'audio.mp3' : 'imagem.png'));
-    
     let mimeType = 'application/octet-stream';
+    let defaultFilename = 'imagem.png';
+
     if (type === 'document') {
       mimeType = 'application/pdf';
+      defaultFilename = 'documento.pdf';
     } else if (type === 'audio') {
-      mimeType = 'audio/mpeg';
+      if (media.link && (media.link.endsWith('.ogg') || media.link.endsWith('.opus') || (filename && (filename.endsWith('.ogg') || filename.endsWith('.opus'))))) {
+        mimeType = 'audio/ogg';
+        defaultFilename = 'audio.ogg';
+      } else {
+        mimeType = 'audio/mpeg';
+        defaultFilename = 'audio.mp3';
+      }
     } else if (type === 'image') {
       mimeType = 'image/png';
+      defaultFilename = 'imagem.png';
     }
 
-    const defaultFilename = type === 'document' ? 'documento.pdf' : type === 'audio' ? 'audio.mp3' : 'imagem.png';
+    formData.append('body', filename || defaultFilename);
     const fileBlob = new Blob([new Uint8Array(buffer)], { type: mimeType });
     formData.append('media', fileBlob, filename || defaultFilename);
 
@@ -1761,12 +1769,22 @@ export async function sendEvolutionMediaMessage(
     }
 
     let mimeType = 'application/octet-stream';
+    let defaultFilename = 'imagem.png';
+
     if (type === 'document') {
       mimeType = 'application/pdf';
+      defaultFilename = 'documento.pdf';
     } else if (type === 'audio') {
-      mimeType = 'audio/mpeg';
+      if (media.link && (media.link.endsWith('.ogg') || media.link.endsWith('.opus') || (filename && (filename.endsWith('.ogg') || filename.endsWith('.opus'))))) {
+        mimeType = 'audio/ogg';
+        defaultFilename = 'audio.ogg';
+      } else {
+        mimeType = 'audio/mpeg';
+        defaultFilename = 'audio.mp3';
+      }
     } else if (type === 'image') {
       mimeType = 'image/png';
+      defaultFilename = 'imagem.png';
     }
 
     const payload = {
@@ -1774,7 +1792,7 @@ export async function sendEvolutionMediaMessage(
       mediatype: type === 'audio' ? 'audio' : type === 'document' ? 'document' : 'image',
       mimetype: mimeType,
       media: media.link,
-      fileName: filename || (type === 'document' ? 'documento.pdf' : type === 'audio' ? 'audio.mp3' : 'imagem.png')
+      fileName: filename || defaultFilename
     };
 
     const response = await fetch(`${cleanUrl}/message/sendMedia/${instance}`, {
