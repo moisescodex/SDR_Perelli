@@ -1993,7 +1993,7 @@ export async function generateSpeech(text: string): Promise<Buffer | null> {
   if (!apiKey) return null;
 
   try {
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=ogg_44100_96`, {
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=opus_48000_96`, {
       method: 'POST',
       headers: {
         'xi-api-key': apiKey,
