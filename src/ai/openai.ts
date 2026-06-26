@@ -74,7 +74,7 @@ Diretrizes rígidas de escrita (Tom e Estilo do Perelli no WhatsApp):
 5. UMA PERGUNTA POR VEZ: Nunca peça várias informações em uma única mensagem. Peça apenas um dado de cada vez e espere o cliente responder antes de perguntar o próximo.
 6. NÃO FALE DOS PRÓXIMOS PASSOS ANTES DA HORA: Nunca fale sobre "próximos passos" (como vendedor humano ligando, preenchimento de questionário de saúde ou entrevista médica) nas etapas de qualificação ou proposta. Essa conversa sobre os próximos passos do pós-venda é estritamente restrita para o final do fluxo, depois que o cliente já tiver enviado todos os documentos necessários.
 7. NÃO ENVIE ARQUIVOS PDF: Sob nenhuma hipótese anexe ou ofereça arquivos PDF com a proposta (campo \`media\` no JSON deve vir nulo ou vazio para PDFs). A proposta e os benefícios devem ser enviados exclusivamente em formato de texto no corpo da mensagem.
-8. ENVIO DE ÁUDIO DECIDIDO POR VOCÊ: Você pode definir o campo \`send_audio: true\` para que a resposta seja lida em voz alta e enviada como áudio de voz do WhatsApp via ElevenLabs. Use isso com moderação (ex: 20-30% das vezes), mas você DEVE SEMPRE definir \`send_audio: true\` nas etapas onde explica o funcionamento do plano, coparticipação ("use e pague"), ou quando o cliente solicitar áudio. Em mensagens de propostas longas ou que necessitem de leitura de tabelas, prefira \`send_audio: false\` para que o cliente consiga ler o texto.
+8. ENVIO DE ÁUDIO DECIDIDO POR VOCÊ: Você pode definir o campo \`send_audio: true\` para que a resposta seja lida em voz alta e enviada como áudio de voz do WhatsApp via ElevenLabs. Use isso com moderação (ex: 20-30% das vezes), mas você DEVE SEMPRE definir \`send_audio: true\` ao apresentar/explicar a proposta com preços (Etapa 2 / estágio MEETING_SCHEDULED), ao explicar o funcionamento do plano, coparticipação ("use e pague"), ou quando o cliente solicitar áudio.
 
 Fluxo Conversacional e Regras de Negócio Obrigatórias:
 
@@ -722,6 +722,16 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
 
       response = `${propostaText}\n\n${beneficiosText}`;
       media = null; // Don't send PDF anymore!
+      return {
+        stage,
+        response,
+        has_cnpj,
+        current_plan,
+        num_lives,
+        preferred_hospitals,
+        media,
+        send_audio: true
+      };
     } else {
       // Se por algum motivo o fluxo quebrou, reinicia na idade
       const clientName = lead.name || 'Cliente';
@@ -731,6 +741,16 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
     // Para compatibilidade com leads já no estágio antigo, apresenta benefícios e vai para MEETING_SCHEDULED
     stage = 'MEETING_SCHEDULED';
     response = `Com certeza! Além desses valores, contratando hoje você garante benefícios exclusivos de redução de carências e descontos. Olha só:\n\nBenefícios Austa contratando hoje:\n\nRedução nas carências:\n* Urgência/Emergência - Liberado para Uso\n* Consultas Simples - Liberado para Uso\n* Exames Simples - Liberado para Uso\n\nIsenção da taxa de adesão:\n* ✅ Isenção da taxa de adesão do plano.\n* ✅ (Não paga nada na contratação)\n* ✅ Sem Consulta no SPC e Serasa\n* ✅ 50% de desconto na 2ª e na 13ª mensalidade.*\n\nDesconto para nova contratação\n✅ 50% de desconto na 2ª e na 13ª mensalidade\n\nPara darmos andamento ao seu cadastro e verificar as carências certinhas, você prefere enviar a foto dos documentos por aqui mesmo?`;
+    return {
+      stage,
+      response,
+      has_cnpj,
+      current_plan,
+      num_lives,
+      preferred_hospitals,
+      media,
+      send_audio: true
+    };
   } else if (stage === 'MEETING_SCHEDULED') {
     // Parse doc status
     let hasRgCnh = false;
