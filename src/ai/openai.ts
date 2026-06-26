@@ -101,11 +101,21 @@ Fluxo Conversacional e Regras de Negócio Obrigatórias:
      - 49 a 53 anos: R$ 371,83 (Adesão) / R$ 350,73 (Empresarial)
      - 54 a 58 anos: R$ 495,06 (Adesão) / R$ 467,12 (Empresarial)
      - Acima 59 anos: R$ 737,03 (Adesão) / R$ 695,64 (Empresarial)
-   - Apresente a proposta do plano de saúde em um formato amigável, confirmando as informações dele. Ao enviar o preço para a idade informada pelo lead, em vez de enviar a faixa etária da tabela (ex: 44 a 48 anos), envie apenas a idade exata informada pelo lead. Exemplo: se o lead tem 46 anos, escreva '🧡 Idade: 46 anos — 1 Vida(s)' com o preço da respectiva faixa. O bloco da proposta em si deve seguir exatamente este padrão (SEM anexar PDF):
-     "AUSTA – [Adesão ou Empresarial] Medida Certa 50 STD\n✅ [Coletivo por Adesão ou Plano Empresarial (CNPJ)]\n✅ Com Coparticipação\n✅ Reajuste em [Setembro/26 se Adesão ou Junho/26 se Empresarial]\n\n✅ EMERGENCIA 24H em todo território nacional (ABRAMGE)\n✅ Cobertura Total (Consultas, Exames, Internações e Cirurgias)\n✅ Sem limite de Uso\n\nCo-Participação\n🩺 Consultas R$ 35,00\n🩺 Emergência R$ 40,00\n🩺 Internação/Cirurgia R$ 200,00\n🩺 Exames de R$ 2,00 a R$ 200,00\n\nValores por vida/faixa etária:\n\n🧡 Idade: [Idade Informada] anos — [N. Vidas] Vida(s)\nEnfermaria: R$ [Preço da Tabela] (por vida)\n---------------------------\n[Adicione se for Adesão: Taxa Associativa à partir de: R$ 5,00\\mensal]"
-   - Você DEVE enviar a mensagem de benefícios e descontos LOGO APÓS/CONJUNTAMENTE com a proposta na mesma resposta, sem esperar o cliente perguntar ou interagir. A lista de benefícios em si deve seguir este formato:
-     "Benefícios Austa contratando hoje:\n\nRedução nas carências:\n* Urgência/Emergência - Liberado para Uso\n* Consultas Simples - Liberado para Uso\n* Exames Simples - Liberado para Uso\n\nIsenção da taxa de adesão:\n* ✅ Isenção da taxa de adesão do plano.\n* ✅ (Não paga nada na contratação)\n* ✅ Sem Consulta no SPC e Serasa\n* ✅ 50% de desconto na 2ª e na 13ª mensalidade.*\n\nDesconto para nova contratação\n✅ 50% de desconto na 2ª e na 13ª mensalidade"
-   - Ao final dessa mensagem unificada (Proposta + Benefícios), peça de forma simpática e educada que o cliente envie os documentos (RG/CNH e Comprovante de Residência) para dar andamento ao cadastro (transicionando para o estágio 'MEETING_SCHEDULED').
+   - Apresente a proposta do plano de saúde e os benefícios de forma extremamente fluida, humana e natural no WhatsApp (evitando listas mecânicas de tópicos ou tabelas secas, para que a leitura em voz alta via ElevenLabs soe 100% conversacional e com excelente oratória).
+   - Ao enviar o preço para a idade informada pelo lead, em vez de enviar a faixa etária da tabela, mencione a idade exata informada pelo lead. 
+   - Você DEVE enviar a proposta de preços e a explicação dos benefícios e descontos de forma unificada e conectada na mesma resposta, finalizando com a solicitação dos documentos de forma simpática. 
+   - Siga este tom e estrutura de oratória fluida para o texto (sem anexar PDF):
+     "Oi, [Nome]! Tudo bem com você?
+     
+     Estou te encaminhando os detalhes e o orçamento do plano de saúde da AUSTA Medida Certa, de acordo com a idade de [Idade] anos que você me passou.
+     
+     O modelo de contratação que eu te passei é o coparticipativo, também conhecido como "use e pague" — que é o plano Medida Certa. Nele, você paga a mensalidade fixa por mês e, sempre que precisar utilizar, paga apenas uma taxinha proporcional ao uso. Para você ter uma ideia, as consultas com especialistas ficam em trinta e cinco reais (com direito a retorno em até trinta dias sem pagar nada), e os exames simples começam a partir de apenas dois reais. Para a sua idade, o valor da mensalidade na Enfermaria fica em R$ [Preço da Tabela] por vida [se for Adesão, adicione: , mais a taxa associativa a partir de R$ 5,00 mensais].
+     
+     E se fecharmos a contratação hoje, nós estamos com uma campanha excelente de redução de carências! Eu consigo liberar para uso imediato os atendimentos de urgência e emergência, além de consultas e exames simples. 
+     
+     Você também ganha isenção total da taxa de adesão. Isso significa que você não paga absolutamente nada agora para contratar o plano — você só vai pagar a primeira mensalidade na ativação dele. E para completar, você ganha 50% de desconto na sua segunda e também na sua décima terceira mensalidade!
+     
+     Para darmos andamento ao seu cadastro e garantir todos esses benefícios, você prefere enviar a foto dos documentos por aqui mesmo?"
 
 4. ETAPA 4: TRATAMENTO DE DUVIDA "USE E PAGUE" (COPARTICIPAÇÃO)
    - Se o cliente perguntar "é Use e pague?" ou questionar como funciona a coparticipação, explique de forma simples e humana que ele só paga coparticipação (conforme os valores tabelados) nos exames ou consultas que realmente usar, defina obrigatoriamente \`send_audio: true\` na resposta JSON para explicá-la em voz alta, e anexe o áudio explicativo do catálogo:
@@ -710,17 +720,23 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
       const idadeDetectada = num_lives || '25';
       const precoData = getPreco(idadeDetectada, isCnpjValue);
 
-      const tipoContrato = isCnpjValue ? 'Plano Empresarial (CNPJ)' : 'Coletivo por Adesão';
-      const reajusteMês = isCnpjValue ? 'Junho/26' : 'Setembro/26';
-      const taxaAssociativa = isCnpjValue ? '' : '\nTaxa Associativa à partir de: R$ 5,00\\mensal';
+      const taxaAssociativaText = isCnpjValue ? '' : ', mais a taxa associativa a partir de R$ 5,00 mensais';
+      const precoFormatado = precoData.preco.toFixed(2).replace('.', ',');
 
       const clientName = lead.name || 'Cliente';
-      
-      const propostaText = `Que ótimo, ${clientName}! Com base nas suas respostas, consultei a tabela e preparei a proposta ideal no plano AUSTA Medida Certa 50 STD. Olha como fica:\n\nAUSTA – ${isCnpjValue ? 'Empresarial' : 'Adesão'} Medida Certa 50 STD\n✅ ${tipoContrato}\n✅ Com Coparticipação\n✅ Reajuste em ${reajusteMês}\n\n✅ EMERGENCIA 24H em todo território nacional (ABRAMGE)\n✅ Cobertura Total (Consultas, Exames, Internações e Cirurgias)\n✅ Sem limite de Uso\n\nCo-Participação\n🩺 Consultas R$ 35,00\n🩺 Emergência R$ 40,00\n🩺 Internação/Cirurgia R$ 200,00\n🩺 Exames de R$ 2,00 a R$ 200,00\n\nValores por vida/faixa etária:\n\n🧡 Idade: ${idadeDetectada} anos — 1 Vida(s)\nEnfermaria: R$ ${precoData.preco.toFixed(2).replace('.', ',')} (por vida)\n---------------------------${taxaAssociativa}`;
 
-      const beneficiosText = `Além desses valores, contratando hoje você garante benefícios exclusivos de redução de carências e descontos. Olha só:\n\nBenefícios Austa contratando hoje:\n\nRedução nas carências:\n* Urgência/Emergência - Liberado para Uso\n* Consultas Simples - Liberado para Uso\n* Exames Simples - Liberado para Uso\n\nIsenção da taxa de adesão:\n* ✅ Isenção da taxa de adesão do plano.\n* ✅ (Não paga nada na contratação)\n* ✅ Sem Consulta no SPC e Serasa\n* ✅ 50% de desconto na 2ª e na 13ª mensalidade.*\n\nDesconto para nova contratação\n✅ 50% de desconto na 2ª e na 13ª mensalidade\n\nPara darmos andamento ao seu cadastro e verificar as carências certinhas, você prefere enviar a foto dos documentos por aqui mesmo?`;
+      response = `Oi, ${clientName}! Tudo bem com você?
 
-      response = `${propostaText}\n\n${beneficiosText}`;
+Estou te encaminhando os detalhes e o orçamento do plano de saúde da AUSTA Medida Certa, de acordo com a idade de ${idadeDetectada} anos que você me passou.
+
+O modelo de contratação que eu te passei é o coparticipativo, também conhecido como "use e pague" — que é o plano Medida Certa. Nele, você paga a mensalidade fixa por mês e, sempre que precisar utilizar, paga apenas uma taxinha proporcional ao uso. Para você ter uma ideia, as consultas com especialistas ficam em trinta e cinco reais (com direito a retorno em até trinta dias sem pagar nada), e os exames simples começam a partir de apenas dois reais. Para a sua idade, o valor da mensalidade na Enfermaria fica em R$ ${precoFormatado} por vida${taxaAssociativaText}.
+
+E se fecharmos a contratação hoje, nós estamos com uma campanha excelente de redução de carências! Eu consigo liberar para uso imediato os atendimentos de urgência e emergência, além de consultas e exames simples. 
+
+Você também ganha isenção total da taxa de adesão. Isso significa que você não paga absolutamente nada agora para contratar o plano — você só vai pagar a primeira mensalidade na ativação dele. E para completar, você ganha 50% de desconto na sua segunda e também na sua décima terceira mensalidade!
+
+Para darmos andamento ao seu cadastro e garantir todos esses benefícios, você prefere enviar a foto dos documentos por aqui mesmo?`;
+
       media = null; // Don't send PDF anymore!
       return {
         stage,
@@ -740,7 +756,14 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
   } else if (stage === 'NEED_PAYOFF') {
     // Para compatibilidade com leads já no estágio antigo, apresenta benefícios e vai para MEETING_SCHEDULED
     stage = 'MEETING_SCHEDULED';
-    response = `Com certeza! Além desses valores, contratando hoje você garante benefícios exclusivos de redução de carências e descontos. Olha só:\n\nBenefícios Austa contratando hoje:\n\nRedução nas carências:\n* Urgência/Emergência - Liberado para Uso\n* Consultas Simples - Liberado para Uso\n* Exames Simples - Liberado para Uso\n\nIsenção da taxa de adesão:\n* ✅ Isenção da taxa de adesão do plano.\n* ✅ (Não paga nada na contratação)\n* ✅ Sem Consulta no SPC e Serasa\n* ✅ 50% de desconto na 2ª e na 13ª mensalidade.*\n\nDesconto para nova contratação\n✅ 50% de desconto na 2ª e na 13ª mensalidade\n\nPara darmos andamento ao seu cadastro e verificar as carências certinhas, você prefere enviar a foto dos documentos por aqui mesmo?`;
+    const clientName = lead.name || 'Cliente';
+    response = `Com certeza, ${clientName}! Contratando hoje, nós conseguimos uma excelente campanha de benefícios para você! 
+
+Você já entra com carência liberada para uso imediato em casos de urgência, emergência, além de consultas e exames simples. 
+
+Você também ganha isenção total da taxa de adesão, ou seja, não paga absolutamente nada agora para contratar o plano — você só vai pagar a primeira mensalidade na ativação dele. E para completar, você ganha 50% de desconto na sua segunda e também na sua décima terceira mensalidade!
+
+Para darmos andamento ao seu cadastro e garantir todos esses benefícios, você prefere enviar a foto dos documentos por aqui mesmo?`;
     return {
       stage,
       response,
