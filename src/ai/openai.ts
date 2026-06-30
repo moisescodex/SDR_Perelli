@@ -70,11 +70,13 @@ Diretrizes rígidas de escrita (Tom e Estilo do Perelli no WhatsApp):
 1. TOM NATURAL E EQUILIBRADO: Seja simpático, prestativo, empático e profissional.
 2. CONVERSA HUMANA E CONEXÃO: Nunca envie mensagens secas ou apenas a tabela/lista diretamente. Sempre comece a mensagem validando o que o lead acabou de dizer, confirmando que entendeu (ex: "Entendi perfeitamente, [Nome]!", "Que ótimo!", "Com certeza!"), demonstrando simpatia e respondendo conectado ao histórico. Ao final da mensagem, sempre faça uma pergunta amigável e natural para guiar o cliente ao próximo passo.
 3. SEM GÍRIAS EXCESSIVAS: Evite gírias informais excessivas no fluxo padrão.
-4. MENSAGENS CURTAS E SEPARADAS: Escreva de forma curta e objetiva. Divida a resposta em até 2 ou 3 balões pequenos usando quebras de linha duplas (\\n\\n).
+4. MENSAGENS CURTAS E SEPARADAS: Escreva de forma curta e objetiva. Divida a resposta em até 2 ou 3 balões pequenos usando quebras de linha duplas (\n\n).
 5. UMA PERGUNTA POR VEZ: Nunca peça várias informações em uma única mensagem. Peça apenas um dado de cada vez e espere o cliente responder antes de perguntar o próximo.
 6. NÃO FALE DOS PRÓXIMOS PASSOS ANTES DA HORA: Nunca fale sobre "próximos passos" (como vendedor humano ligando, preenchimento de questionário de saúde ou entrevista médica) nas etapas de qualificação ou proposta. Essa conversa sobre os próximos passos do pós-venda é estritamente restrita para o final do fluxo, depois que o cliente já tiver enviado todos os documentos necessários.
-7. NÃO ENVIE ARQUIVOS PDF: Sob nenhuma hipótese anexe ou ofereça arquivos PDF com a proposta (campo \`media\` no JSON deve vir nulo ou vazio para PDFs). A proposta e os benefícios devem ser enviados exclusivamente em formato de texto no corpo da mensagem.
-8. ENVIO DE ÁUDIO DECIDIDO POR VOCÊ: Você pode definir o campo \`send_audio: true\` para que a resposta seja lida em voz alta e enviada como áudio de voz do WhatsApp via ElevenLabs. Use isso com moderação (ex: 20-30% das vezes), mas você DEVE SEMPRE definir \`send_audio: true\` ao apresentar/explicar a proposta com preços (Etapa 2 / estágio MEETING_SCHEDULED), ao explicar o funcionamento do plano, coparticipação ("use e pague"), ou quando o cliente solicitar áudio.
+7. NÃO ENVIE ARQUIVOS PDF: Sob nenhuma hipótese anexe ou ofereça arquivos PDF com a proposta (campo "media" no JSON deve vir nulo ou vazio para PDFs). A proposta e os benefícios devem ser enviados exclusivamente em formato de texto no corpo da mensagem.
+8. ENVIO DE ÁUDIO DECIDIDO POR VOCÊ: Você pode definir o campo "send_audio: true" para que a resposta seja enviada como áudio de voz do WhatsApp via ElevenLabs. Use isso com moderação (ex: 20-30% das vezes), mas você DEVE SEMPRE definir "send_audio: true" ao apresentar/explicar a proposta com preços (Etapa 2 / estágio MEETING_SCHEDULED), ao explicar o funcionamento do plano, coparticipação ("use e pague"), ou quando o cliente solicitar áudio.
+   - Quando "send_audio" for true, o campo "audio_text" DEVE conter o texto do áudio de forma corrida, sem tópicos, sem asteriscos, sem emojis e com preços e números por extenso para que a voz da ElevenLabs fale com oratória perfeita e sem travar.
+   - O campo "response" deve conter a versão escrita do texto para WhatsApp: de forma organizada, bem espaçada, menos texto, de leitura rápida e usando bullet points claros e emojis moderados.
 
 Fluxo Conversacional e Regras de Negócio Obrigatórias:
 
@@ -86,10 +88,10 @@ Fluxo Conversacional e Regras de Negócio Obrigatórias:
      * Pergunta 4 (após receber o tratamento): Valide e pergunte se ele possui empresa ou MEI ativo. (Ex: "Certo! E você possui CNPJ ou MEI ativo?").
    - O robô não pode avançar para a proposta sem ter coletado e confirmado TODAS as 4 informações. Se o cliente responder apenas "Ok" ou desviar do assunto, o robô deve insistir de forma simpática na pergunta que ficou pendente.
 
-2. ETAPA 2: PROPOSTA COM PREÇO REAL E BENEFÍCIOS IMEDIATOS (Estágio 'MEETING_SCHEDULED')
+2. ETAPA 2: PROPOSTA COM PREÇO REAL E BENEFÍCIOS NA ATIVAÇÃO (Estágio 'MEETING_SCHEDULED')
    - Assim que o lead responder as 4 informações, identifique se ele possui empresa/MEI para selecionar o tipo de plano:
      * Com empresa/MEI: Plano **Empresarial** (Reajuste em Junho/26).
-     * Sem empresa/MEI: Plano **Adesão** (Reajuste em Setembro/26, e informe "Taxa Associativa à partir de: R$ 5,00\\mensal").
+     * Sem empresa/MEI: Plano **Adesão** (Reajuste em Setembro/26, e informe "Taxa Associativa à partir de: R$ 5,00\mensal").
    - Identifique o preço exato da Enfermaria (STD) para a idade informada com base nesta tabela real da AUSTA Medida Certa 50 STD:
      - 00 a 18 anos: R$ 138,84 (Adesão) / R$ 130,69 (Empresarial)
      - 19 a 23 anos: R$ 138,84 (Adesão) / R$ 130,69 (Empresarial)
@@ -101,21 +103,28 @@ Fluxo Conversacional e Regras de Negócio Obrigatórias:
      - 49 a 53 anos: R$ 371,83 (Adesão) / R$ 350,73 (Empresarial)
      - 54 a 58 anos: R$ 495,06 (Adesão) / R$ 467,12 (Empresarial)
      - Acima 59 anos: R$ 737,03 (Adesão) / R$ 695,64 (Empresarial)
-   - Apresente a proposta do plano de saúde e os benefícios de forma extremamente fluida, humana e natural no WhatsApp (evitando listas mecânicas de tópicos ou tabelas secas, para que a leitura em voz alta via ElevenLabs soe 100% conversacional e com excelente oratória).
-   - Ao enviar o preço para a idade informada pelo lead, em vez de enviar a faixa etária da tabela, mencione a idade exata informada pelo lead. 
-   - Você DEVE enviar a proposta de preços e a explicação dos benefícios e descontos de forma unificada e conectada na mesma resposta, finalizando com a solicitação dos documentos de forma simpática. 
-   - Siga este tom e estrutura de oratória fluida para o texto (sem anexar PDF):
-     "Oi, [Nome]! Tudo bem com você?
-     
-     Estou te encaminhando os detalhes e o orçamento do plano de saúde da AUSTA Medida Certa, de acordo com a idade de [Idade] anos que você me passou.
-     
-     O modelo de contratação que eu te passei é o coparticipativo, também conhecido como "use e pague" — que é o plano Medida Certa. Nele, você paga a mensalidade fixa por mês e, sempre que precisar utilizar, paga apenas uma taxinha proporcional ao uso. Para você ter uma ideia, as consultas com especialistas ficam em trinta e cinco reais (com direito a retorno em até trinta dias sem pagar nada), e os exames simples começam a partir de apenas dois reais. Para a sua idade, o valor da mensalidade na Enfermaria fica em R$ [Preço da Tabela] por vida [se for Adesão, adicione: , mais a taxa associativa a partir de R$ 5,00 mensais].
-     
-     E se fecharmos a contratação hoje, nós estamos com uma campanha excelente de redução de carências! Eu consigo liberar na ativação do contrato os atendimentos de urgência e emergência, além de consultas e exames simples. 
-     
-     Você também ganha isenção total da taxa de adesão. Isso significa que você não paga absolutamente nada agora para contratar o plano — você só vai pagar a primeira mensalidade na ativação dele. E para completar, você ganha 50% de desconto na sua segunda e também na sua décima terceira mensalidade!
-     
-     Para darmos andamento ao seu cadastro e garantir todos esses benefícios, você prefere enviar a foto dos documentos por aqui mesmo?"
+   - Ao enviar a proposta, diferencie o campo "response" (WhatsApp escrito) e o campo "audio_text" (leitura em voz alta):
+     * O campo "response" deve ser organizado e de fácil leitura, neste modelo exato de bullet points:
+       "Oi, [Nome]! Tudo bem com você?
+       
+       Estou te enviando os detalhes e o orçamento do plano de saúde da AUSTA Medida Certa para a idade de [Idade] anos:
+       
+       💵 *Valores:*
+       • Mensalidade na Enfermaria: R$ [Preço da Tabela] por vida [se for Adesão, adicione: (+ R$ 5,00 mensais de taxa associativa)]
+       
+       🏥 *Modelo Use e Pague (Coparticipativo):*
+       • Você paga a mensalidade fixa mensal e pequenas taxas apenas quando usar.
+       • Consultas: R$ 35,00 (com retorno grátis em até 30 dias).
+       • Exames simples: a partir de R$ 2,00.
+       
+       🎁 *Benefícios Exclusivos contratando hoje:*
+       • Isenção total da taxa de adesão (primeira parcela só na ativação do plano).
+       • Desconto de 50% na segunda e na décima terceira mensalidade.
+       • Redução de carências: atendimentos de urgência, emergência, consultas e exames simples liberados na ativação do contrato.
+       
+       Para darmos andamento ao seu cadastro e garantir todos esses benefícios, você prefere enviar a foto dos documentos por aqui mesmo?"
+
+     * O campo "audio_text" deve ser a versão corrida para o ElevenLabs ler (escreva os preços e números por extenso).
 
 4. ETAPA 4: TRATAMENTO DE DUVIDA "USE E PAGUE" (COPARTICIPAÇÃO)
    - Se o cliente perguntar "é Use e pague?" ou questionar como funciona a coparticipação, explique de forma simples e humana que ele só paga coparticipação (conforme os valores tabelados) nos exames ou consultas que realmente usar, defina obrigatoriamente \`send_audio: true\` na resposta JSON para explicá-la em voz alta, e anexe o áudio explicativo do catálogo:
@@ -323,6 +332,10 @@ const RESPONSE_SCHEMA = {
       type: SchemaType.BOOLEAN,
       description: "Define como true se você decidir responder ao lead usando um áudio de voz da ElevenLabs em vez de texto no WhatsApp."
     },
+    audio_text: {
+      type: SchemaType.STRING,
+      description: "Se send_audio for true, escreva aqui a transcrição de voz para o ElevenLabs. Escreva todos os números por extenso (ex: R$ 210,85 vira 'duzentos e dez reais e oitenta e cinco centavos') e use um tom conversacional limpo, sem tópicos, asteriscos ou emojis."
+    },
     media: {
       type: SchemaType.OBJECT,
       properties: {
@@ -338,6 +351,7 @@ const RESPONSE_SCHEMA = {
 export interface SdrResponse {
   stage: Lead['stage'];
   response: string;
+  audio_text?: string | null;
   has_cnpj?: string | null;
   current_plan?: string | null;
   num_lives?: string | null;
@@ -616,6 +630,31 @@ export function getRegionFromPhone(phone: string): { city: string, state: string
   return mapped ? { ...mapped, ddd } : { city: 'São José do Rio Preto', state: 'SP', ddd };
 }
 
+function getPrecoPorExtenso(idadeStr: string, isCnpj: boolean): string {
+  const idade = parseInt(idadeStr.replace(/\D/g, '')) || 25;
+  if (isCnpj) {
+    if (idade <= 23) return "cento e trinta reais e sessenta e nove centavos";
+    if (idade <= 28) return "cento e cinquenta e três reais e trinta e seis centavos";
+    if (idade <= 33) return "cento e sessenta e nove reais e insignificante cinquenta e três centavos";
+    if (idade <= 38) return "cento e noventa e oito reais e setenta centavos";
+    if (idade <= 43) return "duzentos e vinte e sete reais e oitenta e quatro centavos";
+    if (idade <= 48) return "trezentos e três reais e trinta e oito centavos";
+    if (idade <= 53) return "trezentos e cinquenta reais e setenta e três centavos";
+    if (idade <= 58) return "quatrocentos e sessenta e sete reais e doze centavos";
+    return "seiscentos e noventa e cinco reais e sessenta e quatro centavos";
+  } else {
+    if (idade <= 23) return "cento e trinta e oito reais e oitenta e quatro centavos";
+    if (idade <= 28) return "cento e sessenta e dois reais e oitenta e cinco centavos";
+    if (idade <= 33) return "cento e setenta e nove reais e noventa e cinco centavos";
+    if (idade <= 38) return "duzentos e dez reais e oitenta e cinco centavos";
+    if (idade <= 43) return "duzentos e quarenta e um reais e oitenta e cinco centavos";
+    if (idade <= 48) return "trezentos e vinte e um reais e setenta centavos";
+    if (idade <= 53) return "trezentos e setenta e um reais e oitenta e três centavos";
+    if (idade <= 58) return "quatrocentos e noventa e cinco reais e seis centavos";
+    return "setecentos e trinta e sete reais e três centavos";
+  }
+}
+
 function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-perelli.onrender.com'): SdrResponse {
   const lastUserMsg = lead.history.filter(m => m.role === 'user').pop()?.content?.toLowerCase() || '';
   const assistantMessages = lead.history.filter(m => m.role === 'assistant');
@@ -720,27 +759,38 @@ function getFallbackMockResponse(lead: Lead, baseUrl: string = 'https://sdr-pere
       const idadeDetectada = num_lives || '25';
       const precoData = getPreco(idadeDetectada, isCnpjValue);
 
-      const taxaAssociativaText = isCnpjValue ? '' : ', mais a taxa associativa a partir de R$ 5,00 mensais';
+      const taxaAssociativaText = isCnpjValue ? '' : ' (+ R$ 5,00 mensais de taxa associativa)';
       const precoFormatado = precoData.preco.toFixed(2).replace('.', ',');
+      const precoPorExtenso = getPrecoPorExtenso(idadeDetectada, isCnpjValue);
 
       const clientName = lead.name || 'Cliente';
 
       response = `Oi, ${clientName}! Tudo bem com você?
 
-Estou te encaminhando os detalhes e o orçamento do plano de saúde da AUSTA Medida Certa, de acordo com a idade de ${idadeDetectada} anos que você me passou.
+Estou te enviando os detalhes e o orçamento do plano de saúde da AUSTA Medida Certa para a idade de ${idadeDetectada} anos:
 
-O modelo de contratação que eu te passei é o coparticipativo, também conhecido como "use e pague" — que é o plano Medida Certa. Nele, você paga a mensalidade fixa por mês e, sempre que precisar utilizar, paga apenas uma taxinha proporcional ao uso. Para você ter uma ideia, as consultas com especialistas ficam em trinta e cinco reais (com direito a retorno em até trinta dias sem pagar nada), e os exames simples começam a partir de apenas dois reais. Para a sua idade, o valor da mensalidade na Enfermaria fica em R$ ${precoFormatado} por vida${taxaAssociativaText}.
+💵 *Valores:*
+• Mensalidade na Enfermaria: R$ ${precoFormatado} por vida${taxaAssociativaText}
 
-E se fecharmos a contratação hoje, nós estamos com uma campanha excelente de redução de carências! Eu consigo liberar na ativação do contrato os atendimentos de urgência e emergência, além de consultas e exames simples. 
+🏥 *Modelo Use e Pague (Coparticipativo):*
+• Você paga a mensalidade fixa mensal e pequenas taxas apenas quando usar.
+• Consultas: R$ 35,00 (com retorno grátis em até 30 dias).
+• Exames simples: a partir de R$ 2,00.
 
-Você também ganha isenção total da taxa de adesão. Isso significa que você não paga absolutamente nada agora para contratar o plano — você só vai pagar a primeira mensalidade na ativação dele. E para completar, você ganha 50% de desconto na sua segunda e também na sua décima terceira mensalidade!
+🎁 *Benefícios Exclusivos contratando hoje:*
+• Isenção total da taxa de adesão (primeira parcela só na ativação do plano).
+• Desconto de 50% na segunda e na décima terceira mensalidade.
+• Redução de carências: atendimentos de urgência, emergência, consultas e exames simples liberados na ativação do contrato.
 
 Para darmos andamento ao seu cadastro e garantir todos esses benefícios, você prefere enviar a foto dos documentos por aqui mesmo?`;
+
+      const audio_text = `Oi, ${clientName}! Tudo bem com você? Estou te encaminhando os detalhes e o orçamento do plano de saúde da Austa Medida Certa, de acordo com a idade de ${idadeDetectada} anos que você me passou. O modelo de contratação que eu te passei é o coparticipativo, também conhecido como use e pague, que é o plano Medida Certa. Nele, você paga a mensalidade fixa por mês e, sempre que precisar utilizar, paga apenas uma taxinha proporcional ao uso. Para você ter uma ideia, as consultas com especialistas ficam em trinta e cinco reais, com direito a retorno em até trinta dias sem pagar nada, e os exames simples começam a partir de apenas dois reais. Para a sua idade, o valor da mensalidade na Enfermaria fica em ${precoPorExtenso} por vida${isCnpjValue ? '' : ', mais a taxa associativa a partir de cinco reais mensais'}. E se fecharmos a contratação hoje, nós estamos com uma campanha excelente de redução de carências! Eu consigo liberar na ativação do contrato os atendimentos de urgência e emergência, além de consultas e exames simples. Você também ganha isenção total da taxa de adesão. Isso significa que você não paga absolutamente nada agora para contratar o plano — você só vai pagar a primeira mensalidade na ativação dele. E para completar, você ganha cinquenta por cento de desconto na sua segunda e também na sua décima terceira mensalidade! Para darmos andamento ao seu cadastro e garantir todos esses benefícios, você prefere enviar a foto dos documentos por aqui mesmo?`;
 
       media = null; // Don't send PDF anymore!
       return {
         stage,
         response,
+        audio_text,
         has_cnpj,
         current_plan,
         num_lives,
@@ -757,16 +807,22 @@ Para darmos andamento ao seu cadastro e garantir todos esses benefícios, você 
     // Para compatibilidade com leads já no estágio antigo, apresenta benefícios e vai para MEETING_SCHEDULED
     stage = 'MEETING_SCHEDULED';
     const clientName = lead.name || 'Cliente';
-    response = `Com certeza, ${clientName}! Contratando hoje, nós conseguimos uma excelente campanha de benefícios para você! 
 
-Você já entra com carência liberada na ativação do contrato em casos de urgência, emergência, além de consultas e exames simples. 
+    response = `Com certeza, ${clientName}! Contratando hoje, nós conseguimos uma excelente campanha de benefícios para você:
 
-Você também ganha isenção total da taxa de adesão, ou seja, não paga absolutamente nada agora para contratar o plano — você só vai pagar a primeira mensalidade na ativação dele. E para completar, você ganha 50% de desconto na sua segunda e também na sua décima terceira mensalidade!
+🎁 *Benefícios Exclusivos:*
+• Isenção total da taxa de adesão (primeira parcela só na ativação do plano).
+• Desconto de 50% na segunda e na décima terceira mensalidade.
+• Redução de carências: atendimentos de urgência, emergência, consultas e exames simples liberados na ativação do contrato.
 
 Para darmos andamento ao seu cadastro e garantir todos esses benefícios, você prefere enviar a foto dos documentos por aqui mesmo?`;
+
+    const audio_text = `Com certeza, ${clientName}! Contratando hoje, nós conseguimos uma excelente campanha de benefícios para você! Você já entra com carência liberada na ativação do contrato em casos de urgência, emergência, além de consultas e exames simples. Você também ganha isenção total da taxa de adesão, ou seja, não paga absolutamente nada agora para contratar o plano — você só vai pagar a primeira mensalidade na ativação dele. E para completar, você ganha cinquenta por cento de desconto na sua segunda e também na sua décima terceira mensalidade! Para darmos andamento ao seu cadastro e garantir todos esses benefícios, você prefere enviar a foto dos documentos por aqui mesmo?`;
+
     return {
       stage,
       response,
+      audio_text,
       has_cnpj,
       current_plan,
       num_lives,
@@ -804,8 +860,9 @@ Para darmos andamento ao seu cadastro e garantir todos esses benefícios, você 
     } else if (isDocSent) {
       stage = 'CONVERTED';
       response = `Recebi os documentos! Agora, o próximo passo é o nosso consultor humano entrar em contato para te auxiliar no cadastro final e validar tudo na operadora.\n\nDepois disso, você receberá um e-mail para preencher um questionário de saúde e, em seguida, faremos uma entrevista médica online. Mas não se preocupe, vamos te guiar em cada etapa, combinado?`;
-  } else if (isAskingUse) {
+    } else if (isAskingUse) {
       response = `O plano funciona sim com coparticipação (conhecido como "use e pague"), onde você só paga taxas muito pequenas por consultas e exames que realmente realizar. Isso garante uma mensalidade muito mais barata no final do mês!\n\nEstou te enviando um áudio curto aqui que explica direitinho como funciona.`;
+      const audio_text = `O plano funciona sim com coparticipação, onde você só paga taxas muito pequenas por consultas e exames que realmente realizar. Isso garante uma mensalidade muito mais barata no final do mês! Estou te enviando um áudio curto aqui que explica direitinho como funciona.`;
       media = {
         type: 'audio',
         url: `${baseUrl}/documentos/audio_explicativo_planos.mp3`,
@@ -814,6 +871,7 @@ Para darmos andamento ao seu cadastro e garantir todos esses benefícios, você 
       return {
         stage,
         response,
+        audio_text,
         has_cnpj,
         current_plan,
         num_lives,
@@ -833,6 +891,7 @@ Para darmos andamento ao seu cadastro e garantir todos esses benefícios, você 
   return {
     stage,
     response,
+    audio_text: null,
     has_cnpj,
     current_plan,
     num_lives,

@@ -782,10 +782,10 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
             
             if (shouldSendAudio) {
               console.log(`🎙️ [TTS ELEVENLABS - META] Gerando áudio de voz para ${phone}...`);
-              const voiceBuffer = await generateSpeech(sdrResult.response);
+              const voiceBuffer = await generateSpeech(sdrResult.audio_text || sdrResult.response);
               if (voiceBuffer) {
                 try {
-                  const delay = getTypingDelay(sdrResult.response);
+                  const delay = getTypingDelay(sdrResult.audio_text || sdrResult.response);
                   await new Promise(resolve => setTimeout(resolve, delay));
                   
                   const mediaId = await uploadMediaToMeta(activeChannel, voiceBuffer, 'audio/ogg', `voice_${Date.now()}.ogg`);
@@ -1457,7 +1457,7 @@ async function triggerNextResponse(phone: string, activeChannel: string, baseUrl
 
     if (shouldSendAudio) {
       console.log(`🎙️ [TTS ELEVENLABS - WHATICKET] Gerando áudio de voz para ${phone}...`);
-      const voiceBuffer = await generateSpeech(sdrResult.response);
+      const voiceBuffer = await generateSpeech(sdrResult.audio_text || sdrResult.response);
       if (voiceBuffer) {
         try {
           const timestamp = Date.now();
@@ -1472,7 +1472,7 @@ async function triggerNextResponse(phone: string, activeChannel: string, baseUrl
           console.log(`🎙️ [TTS ELEVENLABS - WHATICKET] Áudio salvo localmente em ${localPath}. Link: ${voiceUrl}`);
           
           // Simula o tempo de gravação do áudio (tempo de digitação)
-          const delay = getTypingDelay(sdrResult.response);
+          const delay = getTypingDelay(sdrResult.audio_text || sdrResult.response);
           await new Promise(resolve => setTimeout(resolve, delay));
           
           await sendMediaMessage(activeChannel, phone, 'audio', { link: voiceUrl }, 'audio.ogg');
@@ -1504,7 +1504,7 @@ async function triggerNextResponse(phone: string, activeChannel: string, baseUrl
       // Se a mídia for do tipo áudio, gera o arquivo de áudio sob demanda usando ElevenLabs
       if (sdrResult.media.type === 'audio' && env.ELEVENLABS_API_KEY) {
         console.log(`🎙️ [TTS ELEVENLABS - MEDIA AUDIO] Gerando áudio explicativo sob demanda para ${phone}...`);
-        const explanationText = sdrResult.response || "Vou te explicar como funciona.";
+        const explanationText = sdrResult.audio_text || sdrResult.response || "Vou te explicar como funciona.";
         const voiceBuffer = await generateSpeech(explanationText);
         if (voiceBuffer) {
           try {
