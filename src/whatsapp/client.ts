@@ -799,18 +799,15 @@ whatsappRouter.post('/webhook', async (req: Request, res: Response) => {
               }
             }
 
-            // Fallback: Envia mensagem normal de texto se a IA não pediu áudio ou se a geração falhou
-            if (!audioSentSuccessfully) {
-              // Divide a resposta em mensagens consecutivas
-              const chunks = splitMessage(sdrResult.response);
-              console.log(`📤 Enviando resposta dividida em ${chunks.length} mensagens para ${phone}...`);
+            // Envia mensagem normal de texto por escrito além do áudio
+            const chunks = splitMessage(sdrResult.response);
+            console.log(`📤 Enviando resposta dividida em ${chunks.length} mensagens para ${phone}...`);
 
-              for (let i = 0; i < chunks.length; i++) {
-                const chunk = chunks[i];
-                const delay = getTypingDelay(chunk);
-                await new Promise(resolve => setTimeout(resolve, delay));
-                await sendMessage(activeChannel, phone, chunk);
-              }
+            for (let i = 0; i < chunks.length; i++) {
+              const chunk = chunks[i];
+              const delay = getTypingDelay(chunk);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              await sendMessage(activeChannel, phone, chunk);
             }
 
             // Se a IA escolheu enviar uma mídia associada (PDF, Vídeo, Áudio)
@@ -1487,17 +1484,15 @@ async function triggerNextResponse(phone: string, activeChannel: string, baseUrl
       }
     }
 
-    // Fallback: Envia mensagem normal de texto se a IA não pediu áudio ou se a geração do áudio falhou
-    if (!audioSentSuccessfully) {
-      const chunks = splitMessage(sdrResult.response);
-      console.log(`📤 Enviando resposta Whaticket em ${chunks.length} mensagens para ${phone}...`);
+    // Envia mensagem normal de texto por escrito além do áudio
+    const chunks = splitMessage(sdrResult.response);
+    console.log(`📤 Enviando resposta Whaticket em ${chunks.length} mensagens para ${phone}...`);
 
-      for (let i = 0; i < chunks.length; i++) {
-        const chunk = chunks[i];
-        const delay = getTypingDelay(chunk);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        await sendMessage(activeChannel, phone, chunk);
-      }
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const delay = getTypingDelay(chunk);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      await sendMessage(activeChannel, phone, chunk);
     }
 
     if (sdrResult.media) {

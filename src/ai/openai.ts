@@ -111,7 +111,7 @@ Fluxo Conversacional e Regras de Negócio Obrigatórias:
      
      O modelo de contratação que eu te passei é o coparticipativo, também conhecido como "use e pague" — que é o plano Medida Certa. Nele, você paga a mensalidade fixa por mês e, sempre que precisar utilizar, paga apenas uma taxinha proporcional ao uso. Para você ter uma ideia, as consultas com especialistas ficam em trinta e cinco reais (com direito a retorno em até trinta dias sem pagar nada), e os exames simples começam a partir de apenas dois reais. Para a sua idade, o valor da mensalidade na Enfermaria fica em R$ [Preço da Tabela] por vida [se for Adesão, adicione: , mais a taxa associativa a partir de R$ 5,00 mensais].
      
-     E se fecharmos a contratação hoje, nós estamos com uma campanha excelente de redução de carências! Eu consigo liberar para uso imediato os atendimentos de urgência e emergência, além de consultas e exames simples. 
+     E se fecharmos a contratação hoje, nós estamos com uma campanha excelente de redução de carências! Eu consigo liberar na ativação do contrato os atendimentos de urgência e emergência, além de consultas e exames simples. 
      
      Você também ganha isenção total da taxa de adesão. Isso significa que você não paga absolutamente nada agora para contratar o plano — você só vai pagar a primeira mensalidade na ativação dele. E para completar, você ganha 50% de desconto na sua segunda e também na sua décima terceira mensalidade!
      
@@ -731,7 +731,7 @@ Estou te encaminhando os detalhes e o orçamento do plano de saúde da AUSTA Med
 
 O modelo de contratação que eu te passei é o coparticipativo, também conhecido como "use e pague" — que é o plano Medida Certa. Nele, você paga a mensalidade fixa por mês e, sempre que precisar utilizar, paga apenas uma taxinha proporcional ao uso. Para você ter uma ideia, as consultas com especialistas ficam em trinta e cinco reais (com direito a retorno em até trinta dias sem pagar nada), e os exames simples começam a partir de apenas dois reais. Para a sua idade, o valor da mensalidade na Enfermaria fica em R$ ${precoFormatado} por vida${taxaAssociativaText}.
 
-E se fecharmos a contratação hoje, nós estamos com uma campanha excelente de redução de carências! Eu consigo liberar para uso imediato os atendimentos de urgência e emergência, além de consultas e exames simples. 
+E se fecharmos a contratação hoje, nós estamos com uma campanha excelente de redução de carências! Eu consigo liberar na ativação do contrato os atendimentos de urgência e emergência, além de consultas e exames simples. 
 
 Você também ganha isenção total da taxa de adesão. Isso significa que você não paga absolutamente nada agora para contratar o plano — você só vai pagar a primeira mensalidade na ativação dele. E para completar, você ganha 50% de desconto na sua segunda e também na sua décima terceira mensalidade!
 
@@ -759,7 +759,7 @@ Para darmos andamento ao seu cadastro e garantir todos esses benefícios, você 
     const clientName = lead.name || 'Cliente';
     response = `Com certeza, ${clientName}! Contratando hoje, nós conseguimos uma excelente campanha de benefícios para você! 
 
-Você já entra com carência liberada para uso imediato em casos de urgência, emergência, além de consultas e exames simples. 
+Você já entra com carência liberada na ativação do contrato em casos de urgência, emergência, além de consultas e exames simples. 
 
 Você também ganha isenção total da taxa de adesão, ou seja, não paga absolutamente nada agora para contratar o plano — você só vai pagar a primeira mensalidade na ativação dele. E para completar, você ganha 50% de desconto na sua segunda e também na sua décima terceira mensalidade!
 
